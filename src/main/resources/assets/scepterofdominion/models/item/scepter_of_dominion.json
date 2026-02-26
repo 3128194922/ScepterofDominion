@@ -1,0 +1,6 @@
+{
+  "parent": "item/handheld",
+  "textures": {
+    "layer0": "scepterofdominion:item/scepter_of_dominion"
+  }
+}

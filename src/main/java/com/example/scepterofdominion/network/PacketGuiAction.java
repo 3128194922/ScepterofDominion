@@ -1,5 +1,6 @@
 package com.example.scepterofdominion.network;
 
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -55,7 +56,7 @@ public class PacketGuiAction {
             ServerPlayer player = ctx.get().getSender();
             if (player != null) {
                 ItemStack stack = player.getMainHandItem();
-                if (stack.getItem() instanceof ScepterOfDominionItem item) {
+                if (stack.getItem() instanceof AbstractScepterItem item) {
                     switch (action) {
                         case ACTION_SET_FORMATION -> {
                             CompoundTag tag = stack.getOrCreateTag();
@@ -73,7 +74,12 @@ public class PacketGuiAction {
                         case ACTION_REMOVE_PET -> {
                             try {
                                 UUID uuid = UUID.fromString(valueStr);
-                                item.removeTeamMember(stack, uuid, player);
+                                // Try to find the entity if possible to call onEntityRemoved
+                                net.minecraft.world.entity.LivingEntity entity = null;
+                                if (player.serverLevel().getEntity(uuid) instanceof net.minecraft.world.entity.LivingEntity living) {
+                                    entity = living;
+                                }
+                                item.removeTeamMember(stack, uuid, player, entity);
                             } catch (Exception e) {
                                 // Ignore
                             }

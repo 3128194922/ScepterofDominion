@@ -1,5 +1,6 @@
 package com.example.scepterofdominion.util;
 
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -78,7 +79,7 @@ public class FormationHelper {
         // Iterate over player's inventory to find ScepterOfDominionItem
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (stack.getItem() instanceof ScepterOfDominionItem scepter) {
+            if (stack.getItem() instanceof AbstractScepterItem scepter) {
                 List<UUID> team = scepter.getTeam(stack);
                 if (team.contains(petId)) {
                     return true;
@@ -91,7 +92,7 @@ public class FormationHelper {
     public static ItemStack getScepterWithPet(Player player, UUID petId) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (stack.getItem() instanceof ScepterOfDominionItem scepter) {
+            if (stack.getItem() instanceof AbstractScepterItem scepter) {
                 List<UUID> team = scepter.getTeam(stack);
                 if (team.contains(petId)) {
                     return stack;

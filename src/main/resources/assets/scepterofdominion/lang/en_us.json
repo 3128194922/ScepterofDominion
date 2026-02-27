@@ -1,6 +1,7 @@
 {
   "itemGroup.scepterofdominion": "Scepter of Dominion",
   "item.scepterofdominion.scepter_of_dominion": "Scepter of Dominion",
+  "item.scepterofdominion.dominion_scepter": "Dominion Scepter",
   "gui.scepterofdominion.formation": "Formation",
   "gui.scepterofdominion.team_members": "Team Members",
   "message.scepterofdominion.mode_switch": "Mode: %s",

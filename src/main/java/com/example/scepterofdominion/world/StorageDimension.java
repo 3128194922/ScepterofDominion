@@ -1,6 +1,7 @@
 package com.example.scepterofdominion.world;
 
 import com.example.scepterofdominion.ScepterOfDominion;
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -31,7 +32,7 @@ public class StorageDimension {
     private static final BlockPos STORAGE_POS = new BlockPos(0, 100, 0); // Safe height, assuming platform or void with NoGravity
 
     public static void containPets(ServerPlayer player, ItemStack stack) {
-        if (!(stack.getItem() instanceof ScepterOfDominionItem item)) return;
+        if (!(stack.getItem() instanceof AbstractScepterItem item)) return;
 
         List<UUID> team = item.getTeam(stack);
         if (team.isEmpty()) {
@@ -99,7 +100,7 @@ public class StorageDimension {
     }
 
     public static void releasePets(ServerPlayer player, ItemStack stack) {
-        if (!(stack.getItem() instanceof ScepterOfDominionItem item)) return;
+        if (!(stack.getItem() instanceof AbstractScepterItem item)) return;
 
         List<UUID> team = item.getTeam(stack);
         if (team.isEmpty()) return;

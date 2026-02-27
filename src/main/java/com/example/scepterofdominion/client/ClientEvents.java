@@ -1,6 +1,7 @@
 package com.example.scepterofdominion.client;
 
 import com.example.scepterofdominion.ScepterOfDominion;
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -38,7 +39,7 @@ public class ClientEvents {
         // Handle Left Click (Attack Key) with Scepter
         if (event.getKeyMapping() == mc.options.keyAttack) {
             ItemStack stack = mc.player.getMainHandItem();
-            if (stack.getItem() instanceof ScepterOfDominionItem) {
+            if (stack.getItem() instanceof AbstractScepterItem scepter) {
                 // 1. Mode Switch (Sneak + Left Click)
                 if (mc.player.isCrouching()) {
                     if (System.currentTimeMillis() - lastInputTime > 300) {
@@ -58,9 +59,9 @@ public class ClientEvents {
                 if (hitResult instanceof EntityHitResult entityHit) {
                     Entity target = entityHit.getEntity();
                     if (target instanceof LivingEntity living) {
-                        boolean isOwner = (living instanceof OwnableEntity ownable && mc.player.getUUID().equals(ownable.getOwnerUUID()));
+                        boolean canControl = scepter.canControl(living, mc.player);
                         
-                        if (isOwner) {
+                        if (canControl) {
                             if (System.currentTimeMillis() - lastInputTime > 300) {
                                 lastInputTime = System.currentTimeMillis();
                                 // Send Packet to Server to Add/Focus/Remove
@@ -84,7 +85,7 @@ public class ClientEvents {
         if (mc.player == null || mc.level == null) return;
 
         ItemStack stack = mc.player.getMainHandItem();
-        if (!(stack.getItem() instanceof ScepterOfDominionItem scepter)) return;
+        if (!(stack.getItem() instanceof AbstractScepterItem scepter)) return;
 
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
@@ -122,7 +123,7 @@ public class ClientEvents {
             }
         }
         
-        if (mode == ScepterOfDominionItem.MODE_FORMATION) {
+        if (mode == AbstractScepterItem.MODE_FORMATION) {
             // Render ALL team members as Gold (Focus)
             for (Entity entity : mc.level.entitiesForRendering()) {
                 if (teamUUIDs.contains(entity.getUUID()) && entity instanceof LivingEntity living) {
@@ -158,13 +159,13 @@ public class ClientEvents {
                     boolean isTeam = team.contains(living.getUUID());
                     boolean isFocus = false;
                     
-                    if (scepter.getMode(stack) == ScepterOfDominionItem.MODE_FORMATION) {
+                    if (scepter.getMode(stack) == AbstractScepterItem.MODE_FORMATION) {
                         isFocus = isTeam; // All team members are focus in Formation mode
                     } else {
                         isFocus = isTeam && living.getUUID().equals(focus);
                     }
                     
-                    boolean isOwner = (living instanceof OwnableEntity ownable && mc.player.getUUID().equals(ownable.getOwnerUUID()));
+                    boolean canControl = scepter.canControl(living, mc.player);
 
                     if (isFocus) {
                         // Gold (Already rendered, but reinforce or skip?)
@@ -173,8 +174,8 @@ public class ClientEvents {
                     } else if (isTeam) {
                         // Green for Team Member
                         r = 0.0f; g = 1.0f; b = 0.0f;
-                    } else if (isOwner) {
-                        // Blue/Cyan for Tamed but not in team
+                    } else if (canControl) {
+                        // Blue/Cyan for Tamed/Controllable but not in team
                         r = 0.0f; g = 1.0f; b = 1.0f;
                     } else {
                         // Red for Enemy / Attack Target

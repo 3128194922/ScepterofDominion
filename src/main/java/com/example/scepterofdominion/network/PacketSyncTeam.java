@@ -1,5 +1,6 @@
 package com.example.scepterofdominion.network;
 
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
@@ -37,7 +38,7 @@ public class PacketSyncTeam {
             Player player = Minecraft.getInstance().player;
             if (player != null) {
                 ItemStack stack = player.getMainHandItem();
-                if (stack.getItem() instanceof ScepterOfDominionItem) {
+                if (stack.getItem() instanceof AbstractScepterItem) {
                     // Update stack NBT with synced data
                     CompoundTag tag = stack.getOrCreateTag();
                     if (data.contains("Team")) {

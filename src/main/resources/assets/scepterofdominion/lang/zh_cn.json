@@ -1,6 +1,7 @@
 {
   "itemGroup.scepterofdominion": "统御权杖",
   "item.scepterofdominion.scepter_of_dominion": "统御权杖",
+  "item.scepterofdominion.dominion_scepter": "支配权杖",
   "gui.scepterofdominion.formation": "阵形",
   "gui.scepterofdominion.team_members": "团队成员",
   "message.scepterofdominion.mode_switch": "模式: %s",

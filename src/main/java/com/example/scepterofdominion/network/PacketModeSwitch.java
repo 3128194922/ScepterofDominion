@@ -1,5 +1,6 @@
 package com.example.scepterofdominion.network;
 
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,7 +26,7 @@ public class PacketModeSwitch {
             ServerPlayer player = ctx.get().getSender();
             if (player != null) {
                 ItemStack stack = player.getMainHandItem();
-                if (stack.getItem() instanceof ScepterOfDominionItem item) {
+                if (stack.getItem() instanceof AbstractScepterItem item) {
                     item.cycleMode(stack, player);
                 }
             }

@@ -1,6 +1,7 @@
 package com.example.scepterofdominion.container;
 
 import com.example.scepterofdominion.ScepterOfDominion;
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
@@ -34,7 +35,7 @@ public class ScepterMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return player.getMainHandItem().getItem() instanceof ScepterOfDominionItem;
+        return player.getMainHandItem().getItem() instanceof AbstractScepterItem;
     }
     
     public ItemStack getScepterStack() {

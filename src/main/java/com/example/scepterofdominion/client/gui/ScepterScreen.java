@@ -1,6 +1,7 @@
 package com.example.scepterofdominion.client.gui;
 
 import com.example.scepterofdominion.container.ScepterMenu;
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import com.example.scepterofdominion.network.PacketGuiAction;
 import com.example.scepterofdominion.network.PacketHandler;
@@ -88,8 +89,8 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
             final int index = i;
             // Select Button (Name)
             SimpleButton petBtn = new SimpleButton(listLeft, listTop + i * 24, 80, 20, Component.literal("Empty"), button -> {
-                ItemStack stack = this.menu.getScepterStack();
-                if (stack.getItem() instanceof ScepterOfDominionItem item) {
+                ItemStack stack = Minecraft.getInstance().player.getMainHandItem();
+                if (stack.getItem() instanceof AbstractScepterItem item) {
                      List<CompoundTag> team = item.getTeamInfo(stack);
                      if (index < team.size()) {
                          UUID uuid = team.get(index).getUUID("UUID");
@@ -103,8 +104,8 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
             
             // Remove Button (X)
             SimpleButton removeBtn = new SimpleButton(listLeft + 85, listTop + i * 24, 20, 20, Component.literal("X"), button -> {
-                ItemStack stack = this.menu.getScepterStack();
-                if (stack.getItem() instanceof ScepterOfDominionItem item) {
+                ItemStack stack = Minecraft.getInstance().player.getMainHandItem();
+                if (stack.getItem() instanceof AbstractScepterItem item) {
                      List<CompoundTag> team = item.getTeamInfo(stack);
                      if (index < team.size()) {
                          UUID uuid = team.get(index).getUUID("UUID");
@@ -123,8 +124,8 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         // Darken background
         this.renderBackground(guiGraphics);
 
-        ItemStack stack = this.menu.getScepterStack();
-        if (stack.getItem() instanceof ScepterOfDominionItem item) {
+        ItemStack stack = Minecraft.getInstance().player.getMainHandItem();
+        if (stack.getItem() instanceof AbstractScepterItem item) {
             // Update Formation Buttons Selection State
             int currentFormation = stack.getOrCreateTag().getInt("Formation");
             for (FormationButton btn : formationButtons) {

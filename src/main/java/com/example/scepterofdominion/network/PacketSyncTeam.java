@@ -49,6 +49,12 @@ public class PacketSyncTeam {
                     if (data.contains("Formation")) {
                         tag.putInt("Formation", data.getInt("Formation"));
                     }
+                    if (data.contains("CommandTarget")) {
+                        tag.put("CommandTarget", data.getCompound("CommandTarget"));
+                    }
+                    if (data.hasUUID("AttackTarget")) {
+                        tag.putUUID("AttackTarget", data.getUUID("AttackTarget"));
+                    }
                 }
             }
         });

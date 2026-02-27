@@ -100,6 +100,28 @@ public class ClientEvents {
         List<UUID> teamUUIDs = scepter.getTeam(stack);
         int mode = scepter.getMode(stack);
         
+        // Render Squad Targets (Destination / Attack Target)
+        Vec3 commandTarget = scepter.getCommandTarget(stack);
+        UUID attackTargetUUID = scepter.getAttackTarget(stack);
+        
+        if (commandTarget != null) {
+             // Render Destination Block
+             BlockPos pos = BlockPos.containing(commandTarget);
+             AABB box = new AABB(pos);
+             LevelRenderer.renderLineBox(poseStack, buffer, box, 0.0f, 1.0f, 1.0f, 1.0f); // Cyan
+        }
+        
+        if (attackTargetUUID != null) {
+            // Render Attack Target
+            for (Entity entity : mc.level.entitiesForRendering()) {
+                if (entity.getUUID().equals(attackTargetUUID) && entity instanceof LivingEntity living) {
+                    AABB box = living.getBoundingBox();
+                    LevelRenderer.renderLineBox(poseStack, buffer, box, 1.0f, 0.0f, 0.0f, 1.0f); // Red
+                    break;
+                }
+            }
+        }
+        
         if (mode == ScepterOfDominionItem.MODE_FORMATION) {
             // Render ALL team members as Gold (Focus)
             for (Entity entity : mc.level.entitiesForRendering()) {

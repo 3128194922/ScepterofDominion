@@ -1,6 +1,7 @@
 package com.example.scepterofdominion.item;
 
 import com.example.scepterofdominion.ScepterOfDominion;
+import com.example.scepterofdominion.Config;
 import com.example.scepterofdominion.ai.ScepterAIHandler;
 import com.example.scepterofdominion.network.PacketHandler;
 import net.minecraft.ChatFormatting;
@@ -105,6 +106,8 @@ public class ScepterOfDominionItem extends Item {
             if (tag.contains("Team")) data.put("Team", tag.getList("Team", 10));
             if (tag.hasUUID("Focus")) data.putUUID("Focus", tag.getUUID("Focus"));
             if (tag.contains("Formation")) data.putInt("Formation", tag.getInt("Formation"));
+            if (tag.contains("CommandTarget")) data.put("CommandTarget", tag.getCompound("CommandTarget"));
+            if (tag.hasUUID("AttackTarget")) data.putUUID("AttackTarget", tag.getUUID("AttackTarget"));
             
             PacketHandler.sendToPlayer(new com.example.scepterofdominion.network.PacketSyncTeam(data), serverPlayer);
         }
@@ -210,6 +213,20 @@ public class ScepterOfDominionItem extends Item {
             return new Vec3(pos.getDouble("X"), pos.getDouble("Y"), pos.getDouble("Z"));
         }
         return null;
+    }
+
+    public void setAttackTarget(ItemStack stack, @Nullable UUID targetUUID) {
+        if (targetUUID == null) {
+            stack.getOrCreateTag().remove("AttackTarget");
+        } else {
+            stack.getOrCreateTag().putUUID("AttackTarget", targetUUID);
+        }
+    }
+
+    @Nullable
+    public UUID getAttackTarget(ItemStack stack) {
+        CompoundTag tag = stack.getOrCreateTag();
+        return tag.hasUUID("AttackTarget") ? tag.getUUID("AttackTarget") : null;
     }
 
     // --- Interactions ---
@@ -331,7 +348,7 @@ public class ScepterOfDominionItem extends Item {
             if (entityHit != null) {
                 // Hit an entity (Enemy) -> Attack
                 LivingEntity target = (LivingEntity) entityHit.getEntity();
-                issueAttackCommand(stack, level, target);
+                issueAttackCommand(stack, level, target, player);
                 player.displayClientMessage(Component.translatable("message.scepterofdominion.command_attack", target.getName()).withStyle(ChatFormatting.RED), true);
             } else if (blockHit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
                 // Hit a block -> Move
@@ -341,7 +358,7 @@ public class ScepterOfDominionItem extends Item {
                 // Set Command Target for persistence
                 setCommandTarget(stack, targetPos);
                 
-                issueMoveCommand(stack, level, targetPos, isSprint);
+                issueMoveCommand(stack, level, targetPos, isSprint, player);
                 player.displayClientMessage(Component.translatable("message.scepterofdominion.command_move").withStyle(ChatFormatting.GREEN), true);
             }
         }
@@ -366,12 +383,16 @@ public class ScepterOfDominionItem extends Item {
         return InteractionResult.PASS; // Delegate to use()
     }
     
-    private void issueMoveCommand(ItemStack stack, Level level, Vec3 target, boolean moveOnly) {
+    private void issueMoveCommand(ItemStack stack, Level level, Vec3 target, boolean moveOnly, Player player) {
         List<UUID> team = getTeam(stack);
         int mode = getMode(stack);
         UUID focus = getFocus(stack);
         int formationId = stack.getOrCreateTag().getInt("Formation");
         
+        // Clear Attack Target when moving
+        setAttackTarget(stack, null);
+        syncToClient(stack, player);
+
         // If in SINGLE mode, only move the focused entity
         if (mode == MODE_SINGLE) {
             if (focus == null) return;
@@ -389,117 +410,167 @@ public class ScepterOfDominionItem extends Item {
         }
 
         // If in FORMATION mode (which now includes Team behavior), move everyone according to formation
-        for (int i = 0; i < team.size(); i++) {
-            UUID uuid = team.get(i);
-            if (level instanceof ServerLevel serverLevel) {
+        List<Entity> activeMembers = new ArrayList<>();
+        if (level instanceof ServerLevel serverLevel) {
+            for (UUID uuid : team) {
                 Entity entity = serverLevel.getEntity(uuid);
-                if (entity instanceof TamableAnimal mob) {
-                    mob.setOrderedToSit(false); // Force stand up
-                    
-                    // Use formation logic for all
-                    Vec3 pos = getFormationPos(target, formationId, i, team.size());
-                    
-                    mob.getNavigation().moveTo(pos.x, pos.y, pos.z, 1.5D);
-                    // Clear attack target when moving
-                    mob.setTarget(null); 
+                if (entity instanceof TamableAnimal) {
+                    activeMembers.add(entity);
                 }
+            }
+        }
+
+        List<Vec3> positions = calculateFormationPositions(target, formationId, activeMembers);
+
+        for (int i = 0; i < activeMembers.size(); i++) {
+            Entity entity = activeMembers.get(i);
+            if (i < positions.size() && entity instanceof TamableAnimal mob) {
+                Vec3 pos = positions.get(i);
+                mob.setOrderedToSit(false); // Force stand up
+                mob.getNavigation().moveTo(pos.x, pos.y, pos.z, 1.5D);
+                // Clear attack target when moving
+                mob.setTarget(null);
             }
         }
     }
     
-    private Vec3 getFormationPos(Vec3 center, int formation, int index, int size) {
-        // Formations based on ShinColle FormationHelper logic
-        // ShinColle formations: 
-        // 1: Line Ahead (Single Column)
-        // 2: Double Line
-        // 3: Diamond (Wheel)
-        // 4: Echelon
-        // 5: Line Abreast (Horizontal)
-        
-        // Our GUI IDs: 0:单纵, 1:复纵, 2:轮形, 3:梯形, 4:单横, 5:无
-        // Map our IDs to ShinColle Logic (ShinColle uses 1-based IDs internally, but logic is positional)
-        
-        double x = 0;
-        double z = 0;
-        double spacing = 3.0; // ShinColle uses 3 blocks spacing generally
+    private List<Vec3> calculateFormationPositions(Vec3 center, int formation, List<Entity> members) {
+        List<Vec3> positions = new ArrayList<>();
+        if (members.isEmpty()) return positions;
+
+        double spacingMultiplier = Config.COMMON.formationSpacingMultiplier.get();
+        double currentOffset = 0;
         
         switch (formation) {
-            case 0: // Line Ahead (单纵)
-                // ShinColle: nextLineAheadPos -> x - 3 (face positive)
-                // We assume facing North (negative Z) for simplicity relative to center?
-                // Or just arrange them in a line behind leader.
-                z = index * spacing;
+            case 0: // Line Ahead (单纵) - Along Z axis
+                currentOffset = 0;
+                for (Entity member : members) {
+                    double radius = member.getBbWidth() / 2.0;
+                    double gap = member.getBbWidth() * spacingMultiplier;
+                    currentOffset += radius;
+                    positions.add(center.add(0, 0, currentOffset));
+                    currentOffset += radius + gap;
+                }
                 break;
                 
-            case 1: // Double Line (复纵)
-                // ShinColle: 
-                // 0,1
-                // 2,3
-                // 4,5
-                // index 0 is left, 1 is right?
-                // ShinColle logic:
-                // formatPos 1 (index 0?): x+3 (along Z)
-                // formatPos 2 (index 1?): x-3 (along Z)
-                // Actually ShinColle uses explicit positions per ship slot.
-                // Simplified: 2 columns.
-                x = (index % 2 == 0 ? -1 : 1) * spacing;
-                z = (index / 2) * spacing;
+            case 1: // Double Line (复纵) - Two columns
+                double leftOffset = 0;
+                double rightOffset = 0;
+                double maxHalfWidth = 0;
+                for (Entity member : members) maxHalfWidth = Math.max(maxHalfWidth, member.getBbWidth() / 2.0);
+                double colSpacing = maxHalfWidth + 1.0 + (maxHalfWidth * 2.0 * spacingMultiplier * 0.5); // Adjust column spacing too
+
+                for (int i = 0; i < members.size(); i++) {
+                    Entity member = members.get(i);
+                    double radius = member.getBbWidth() / 2.0;
+                    double gap = member.getBbWidth() * spacingMultiplier;
+                    
+                    if (i % 2 == 0) { // Left
+                        leftOffset += radius;
+                        positions.add(center.add(-colSpacing, 0, leftOffset));
+                        leftOffset += radius + gap;
+                    } else { // Right
+                        rightOffset += radius;
+                        positions.add(center.add(colSpacing, 0, rightOffset));
+                        rightOffset += radius + gap;
+                    }
+                }
                 break;
                 
             case 2: // Diamond (轮形)
-                // ShinColle Diamond:
-                //       1
-                //    2  5  3
-                //       0
-                //       4
-                // (Indices seem mixed in ShinColle comments)
-                // Let's implement a standard Diamond shape around center.
-                // 0: Center (Leader) -> Offset 0,0
-                // 1: Front
-                // 2: Left
-                // 3: Right
-                // 4: Back
-                // 5: Center-Back?
+                // Center + Surrounding
+                // 0: Center
+                // Others: Circle around
+                positions.add(center); // Leader at center
                 
-                if (index == 0) { x=0; z=0; }
-                else if (index == 1) { x=0; z=-spacing*1.5; } // Front
-                else if (index == 2) { x=-spacing*1.5; z=0; } // Left
-                else if (index == 3) { x=spacing*1.5; z=0; } // Right
-                else if (index == 4) { x=0; z=spacing*1.5; } // Back
-                else { x=0; z=0; } // Extra overlap center
+                if (members.size() > 1) {
+                    List<Entity> surroundings = members.subList(1, members.size());
+                    double totalCircumference = 0;
+                    for (Entity e : surroundings) {
+                        double gap = e.getBbWidth() * spacingMultiplier;
+                        totalCircumference += e.getBbWidth() + gap;
+                    }
+                    
+                    double radius = Math.max(3.0, totalCircumference / (2 * Math.PI));
+                    
+                    for (int i = 0; i < surroundings.size(); i++) {
+                        double angle = 2 * Math.PI * i / surroundings.size();
+                        // Rotate to start from front (negative Z)
+                        angle -= Math.PI / 2;
+                        
+                        double x = Math.cos(angle) * radius;
+                        double z = Math.sin(angle) * radius;
+                        positions.add(center.add(x, 0, z));
+                    }
+                }
                 break;
                 
-            case 3: // Echelon (梯形)
-                // ShinColle Echelon: Diagonal
-                // x - 2, z - 2
-                x = index * spacing * 0.7; // 0.7 approx 1/sqrt(2)
-                z = index * spacing * 0.7;
+            case 3: // Echelon (梯形) - Diagonal
+                currentOffset = 0;
+                for (Entity member : members) {
+                    double radius = member.getBbWidth() / 2.0;
+                    double gap = member.getBbWidth() * spacingMultiplier;
+                    // Diagonal distance contribution
+                    currentOffset += radius; 
+                    // Project to axes (multiply by 0.707)
+                    double axisOffset = currentOffset * 0.707;
+                    positions.add(center.add(axisOffset, 0, axisOffset));
+                    currentOffset += radius + gap;
+                }
                 break;
                 
-            case 4: // Line Abreast (单横)
-                // ShinColle: Horizontal line
-                // x + 3 or x - 3
-                // Center the line?
-                x = (index - (size - 1) / 2.0) * spacing;
+            case 4: // Line Abreast (单横) - Along X axis
+                double totalWidth = 0;
+                for (Entity e : members) {
+                    double gap = e.getBbWidth() * spacingMultiplier;
+                    totalWidth += e.getBbWidth() + gap;
+                }
+                if (!members.isEmpty()) {
+                    Entity last = members.get(members.size() - 1);
+                    totalWidth -= last.getBbWidth() * spacingMultiplier;
+                }
+                
+                currentOffset = -totalWidth / 2.0;
+                for (Entity member : members) {
+                    double radius = member.getBbWidth() / 2.0;
+                    double gap = member.getBbWidth() * spacingMultiplier;
+                    currentOffset += radius;
+                    positions.add(center.add(currentOffset, 0, 0));
+                    currentOffset += radius + gap;
+                }
                 break;
                 
-            case 5: // None (无)
+            case 5: // None (无) - Circle/Cluster
             default:
-                // Random/Cluster
-                double angle = 2 * Math.PI * index / size;
-                double radius = 3.0;
-                x = Math.cos(angle) * radius;
-                z = Math.sin(angle) * radius;
+                // Simple Circle
+                double circumference = 0;
+                for (Entity e : members) {
+                    double gap = e.getBbWidth() * spacingMultiplier;
+                    circumference += e.getBbWidth() + gap;
+                }
+                double clusterRadius = Math.max(3.0, circumference / (2 * Math.PI));
+                
+                for (int i = 0; i < members.size(); i++) {
+                    double angle = 2 * Math.PI * i / members.size();
+                    double x = Math.cos(angle) * clusterRadius;
+                    double z = Math.sin(angle) * clusterRadius;
+                    positions.add(center.add(x, 0, z));
+                }
                 break;
         }
         
-        return center.add(x, 0, z);
+        return positions;
     }
     
-    private void issueAttackCommand(ItemStack stack, Level level, LivingEntity target) {
+    private void issueAttackCommand(ItemStack stack, Level level, LivingEntity target, Player player) {
         List<UUID> team = getTeam(stack);
         int mode = getMode(stack);
         UUID focus = getFocus(stack);
+        
+        // Set Attack Target
+        setAttackTarget(stack, target.getUUID());
+        setCommandTarget(stack, null); // Clear movement target
+        syncToClient(stack, player);
         
         for (UUID uuid : team) {
             if (mode == MODE_SINGLE && !uuid.equals(focus)) continue;

@@ -19,6 +19,9 @@ public class PacketHandler {
         INSTANCE.registerMessage(id++, PacketModeSwitch.class, PacketModeSwitch::encode, PacketModeSwitch::decode, PacketModeSwitch::handle);
         INSTANCE.registerMessage(id++, PacketGuiAction.class, PacketGuiAction::encode, PacketGuiAction::decode, PacketGuiAction::handle);
         INSTANCE.registerMessage(id++, PacketSyncTeam.class, PacketSyncTeam::encode, PacketSyncTeam::decode, PacketSyncTeam::handle);
+        INSTANCE.registerMessage(id++, PacketExecuteWaypoints.class, PacketExecuteWaypoints::encode, PacketExecuteWaypoints::decode, PacketExecuteWaypoints::handle);
+        INSTANCE.registerMessage(id++, PacketScepterRightClick.class, PacketScepterRightClick::encode, PacketScepterRightClick::decode, PacketScepterRightClick::handle);
+        INSTANCE.registerMessage(id++, PacketOpenScepterGui.class, PacketOpenScepterGui::encode, PacketOpenScepterGui::decode, PacketOpenScepterGui::handle);
     }
 
     public static void sendToServer(Object msg) {

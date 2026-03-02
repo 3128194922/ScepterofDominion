@@ -24,6 +24,7 @@ public class Config {
         public final ForgeConfigSpec.DoubleValue formationSpacingMultiplier;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> scepterBlacklist;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> dominionWhitelist;
+        public final ForgeConfigSpec.IntValue maxWaypoints;
 
         public CommonConfig(ForgeConfigSpec.Builder builder) {
             builder.push("formation");
@@ -33,6 +34,10 @@ public class Config {
             builder.pop();
 
             builder.push("control");
+            maxWaypoints = builder
+                    .comment("Maximum number of waypoints for RTS path mode. Default: 6. Range: 1-20.")
+                    .defineInRange("maxWaypoints", 6, 1, 20);
+
             scepterBlacklist = builder
                     .comment("List of entities that CANNOT be controlled by the Scepter of Dominion (Tameable Scepter).",
                             "Format: modid:entity_id",

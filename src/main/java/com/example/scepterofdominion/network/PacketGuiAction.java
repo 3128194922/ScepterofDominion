@@ -18,6 +18,7 @@ public class PacketGuiAction {
     public static final int ACTION_SELECT_PET = 1;
     public static final int ACTION_REMOVE_PET = 2;
     public static final int ACTION_LEFT_CLICK_ENTITY = 3;
+    public static final int ACTION_LEFT_CLICK_ENTITY_SHIFT = 6;
     public static final int ACTION_CONTAIN = 4;
     public static final int ACTION_RELEASE = 5;
 
@@ -88,8 +89,22 @@ public class PacketGuiAction {
                             try {
                                 UUID uuid = UUID.fromString(valueStr);
                                 if (player.serverLevel().getEntity(uuid) instanceof net.minecraft.world.entity.LivingEntity living) {
-                                     // Re-validate ownership just in case
                                      item.handleLeftClickLogic(stack, player, living);
+                                }
+                            } catch (Exception e) {
+                                // Ignore
+                            }
+                        }
+                        case ACTION_LEFT_CLICK_ENTITY_SHIFT -> {
+                            try {
+                                UUID uuid = UUID.fromString(valueStr);
+                                if (player.serverLevel().getEntity(uuid) instanceof net.minecraft.world.entity.LivingEntity living) {
+                                     // Handle remove/shift logic
+                                     java.util.List<UUID> team = item.getTeam(stack);
+                                     if (team.contains(living.getUUID())) {
+                                         item.removeTeamMember(stack, living.getUUID(), player, living);
+                                         player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.removed_from_team", living.getName()).withStyle(net.minecraft.ChatFormatting.RED), true);
+                                     }
                                 }
                             } catch (Exception e) {
                                 // Ignore

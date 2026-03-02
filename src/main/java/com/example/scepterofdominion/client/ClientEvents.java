@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
@@ -40,8 +41,21 @@ public class ClientEvents {
         if (event.getKeyMapping() == mc.options.keyAttack) {
             ItemStack stack = mc.player.getMainHandItem();
             if (stack.getItem() instanceof AbstractScepterItem scepter) {
+                // 0. Sprint + Left Click (Execute Waypoints)
+                if (mc.options.keySprint.isDown()) {
+                    if (System.currentTimeMillis() - lastInputTime > 300) {
+                        lastInputTime = System.currentTimeMillis();
+                        com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketExecuteWaypoints());
+                        mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    }
+                    event.setCanceled(true);
+                    event.setSwingHand(false);
+                    return;
+                }
+
                 // 1. Mode Switch (Sneak + Left Click)
-                if (mc.player.isCrouching()) {
+                // Use keyShift instead of isCrouching() to support flying
+                if (mc.options.keyShift.isDown()) {
                     if (System.currentTimeMillis() - lastInputTime > 300) {
                         lastInputTime = System.currentTimeMillis();
                         com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketModeSwitch());
@@ -64,8 +78,12 @@ public class ClientEvents {
                         if (canControl) {
                             if (System.currentTimeMillis() - lastInputTime > 300) {
                                 lastInputTime = System.currentTimeMillis();
-                                // Send Packet to Server to Add/Focus/Remove
-                                com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketGuiAction(com.example.scepterofdominion.network.PacketGuiAction.ACTION_LEFT_CLICK_ENTITY, 0, target.getUUID().toString()));
+                                // Check for Shift key (flying support)
+                                int action = mc.options.keyShift.isDown() ? 
+                                        com.example.scepterofdominion.network.PacketGuiAction.ACTION_LEFT_CLICK_ENTITY_SHIFT : 
+                                        com.example.scepterofdominion.network.PacketGuiAction.ACTION_LEFT_CLICK_ENTITY;
+                                
+                                com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketGuiAction(action, 0, target.getUUID().toString()));
                                 mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
                             }
                             event.setCanceled(true);
@@ -94,6 +112,93 @@ public class ClientEvents {
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 
         VertexConsumer buffer = mc.renderBuffers().bufferSource().getBuffer(RenderType.lines());
+
+        // 0. Render Waypoints
+        List<CompoundTag> waypoints = scepter.getWaypoints(stack);
+        if (!waypoints.isEmpty()) {
+            // Find start position: Player if no team, or first active team member's position
+            // But wait, user said: "start from current pet's position"
+            // If multiple pets, which one?
+            // User likely means "from the pet's current location to the first waypoint".
+            // Since we have multiple pets potentially, and waypoints are shared (queued), 
+            // visualizing lines for *each* pet might be clutter.
+            // But usually waypoints are "General Commands".
+            // Let's stick to Player -> Waypoint 1 -> Waypoint 2 for simplicity, OR
+            // better: Start from the "Command Target" (if set) or Player?
+            // Actually, for RTS style, usually you see lines connecting the waypoints.
+            // The first line should connect from "Current Position" to "First Waypoint".
+            // If we have a focus pet, use its position. If team, maybe use average center?
+            // Or just use Player position as "Command Origin".
+            // User request: "Start from current pet executed move/attack target pos" -> Wait, no.
+            // User said: "First point line render from player start, should start from current pet... position"
+            // So: Pet Pos -> Waypoint 1.
+            
+            Vec3 startPos = mc.player.position();
+            
+            UUID focusUUID = scepter.getFocus(stack);
+            if (focusUUID != null) {
+                // Try to find focus entity
+                for (Entity entity : mc.level.entitiesForRendering()) {
+                    if (entity.getUUID().equals(focusUUID)) {
+                        startPos = entity.position();
+                        break;
+                    }
+                }
+            } else {
+                // If team mode, find center of team? Or just first member?
+                List<UUID> team = scepter.getTeam(stack);
+                if (!team.isEmpty()) {
+                    int count = 0;
+                    Vec3 sum = Vec3.ZERO;
+                    for (Entity entity : mc.level.entitiesForRendering()) {
+                        if (team.contains(entity.getUUID())) {
+                            sum = sum.add(entity.position());
+                            count++;
+                        }
+                    }
+                    if (count > 0) {
+                        startPos = sum.scale(1.0 / count);
+                    }
+                }
+            }
+
+            Vec3 previousPos = startPos;
+            org.joml.Matrix4f matrix = poseStack.last().pose();
+
+            for (int i = 0; i < waypoints.size(); i++) {
+                CompoundTag wp = waypoints.get(i);
+                double x = wp.getDouble("X");
+                double y = wp.getDouble("Y");
+                double z = wp.getDouble("Z");
+                String type = wp.getString("Type");
+
+                float r = 0.0f, g = 1.0f, b = 0.0f, a = 1.0f;
+                if ("ATTACK".equals(type)) {
+                    r = 1.0f; g = 0.0f; b = 0.0f;
+                }
+
+                buffer.vertex(matrix, (float)previousPos.x, (float)previousPos.y + 0.5f, (float)previousPos.z)
+                        .color(r, g, b, a)
+                        .normal(0, 1, 0)
+                        .endVertex();
+                buffer.vertex(matrix, (float)x, (float)y + 0.5f, (float)z)
+                        .color(r, g, b, a)
+                        .normal(0, 1, 0)
+                        .endVertex();
+                
+                // Render marker
+                float size = 0.2f;
+                float yOffset = 0.5f;
+                buffer.vertex(matrix, (float)x - size, (float)y + yOffset, (float)z).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+                buffer.vertex(matrix, (float)x + size, (float)y + yOffset, (float)z).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+                buffer.vertex(matrix, (float)x, (float)y + yOffset, (float)z - size).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+                buffer.vertex(matrix, (float)x, (float)y + yOffset, (float)z + size).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+                buffer.vertex(matrix, (float)x, (float)y + yOffset - size, (float)z).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+                buffer.vertex(matrix, (float)x, (float)y + yOffset + size, (float)z).color(r, g, b, 1.0f).normal(0, 1, 0).endVertex();
+
+                previousPos = new Vec3(x, y, z);
+            }
+        }
 
         // 1. Always Render Focus Pet (Gold Box)
         // Or if in FORMATION mode, render ALL team members as Gold

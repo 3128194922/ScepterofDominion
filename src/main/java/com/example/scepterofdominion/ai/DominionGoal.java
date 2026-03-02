@@ -28,6 +28,12 @@ public class DominionGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (mob.getPersistentData().contains("ScepterWaypoints", net.minecraft.nbt.Tag.TAG_LIST)) {
+            if (!mob.getPersistentData().getList("ScepterWaypoints", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()) {
+                return false;
+            }
+        }
+
         // Only run if the entity is dominated
         if (!mob.getPersistentData().hasUUID("DominionOwner")) return false;
 

@@ -10,6 +10,8 @@
   "message.scepterofdominion.mode.formation": "阵形模式",
   "message.scepterofdominion.team_full": "团队已满!",
   "message.scepterofdominion.already_in_team": "已在团队中!",
+  "message.scepterofdominion.already_controlled": "该生物已被其他权杖控制!",
+  "message.scepterofdominion.removed_from_team": "已从团队中移除: %s",
   "message.scepterofdominion.added_to_team": "已添加到团队: %s",
   "message.scepterofdominion.focus_set": "焦点设置为: %s",
   "message.scepterofdominion.command_attack": "指令: 攻击 %s",
@@ -20,9 +22,11 @@
   "tooltip.scepterofdominion.usage.add": "- 左键点击驯服生物: 添加到团队 / 设置焦点",
   "tooltip.scepterofdominion.usage.attack": "- 右键点击敌方: 命令攻击",
   "tooltip.scepterofdominion.usage.move": "- 右键点击地面: 命令移动",
-  "tooltip.scepterofdominion.usage.move_only": "- 冲刺 + 右键: 仅移动不攻击",
-  "tooltip.scepterofdominion.usage.mode": "- 蹲下 + 左键 (空气): 切换模式",
-  "tooltip.scepterofdominion.usage.gui": "- 蹲下 + 右键: 打开管理界面",
+  "tooltip.scepterofdominion.usage.move_only": "- 冲刺 + 右键 (地面): 仅移动",
+  "tooltip.scepterofdominion.usage.sprint_left": "- 冲刺 + 左键: 执行路径任务",
+  "tooltip.scepterofdominion.usage.sprint_right": "- 冲刺 + 右键: 添加路径点",
+  "tooltip.scepterofdominion.usage.mode": "- 潜行 + 左键: 切换模式",
+  "tooltip.scepterofdominion.usage.gui": "- 潜行 + 右键: 打开管理界面",
   "gui.scepterofdominion.contain": "收容",
   "gui.scepterofdominion.release": "释放",
   "message.scepterofdominion.contained": "已收容 %s 只宠物",
@@ -30,5 +34,8 @@
   "message.scepterofdominion.team_empty": "团队为空",
   "message.scepterofdominion.dimension_missing": "存储维度缺失",
   "message.scepterofdominion.no_pets_found": "附近未发现团队宠物",
-  "message.scepterofdominion.no_pets_stored": "存储中未发现团队宠物"
+  "message.scepterofdominion.no_pets_stored": "存储中未发现团队宠物",
+  "message.scepterofdominion.waypoint_added": "已添加路径点 (%s)",
+  "message.scepterofdominion.waypoint_limit": "路径点数量已达上限 (%s)",
+  "message.scepterofdominion.waypoints_executed": "开始执行路径任务"
 }

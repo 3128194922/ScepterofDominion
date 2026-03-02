@@ -10,6 +10,8 @@
   "message.scepterofdominion.mode.formation": "Formation Control",
   "message.scepterofdominion.team_full": "Team is full!",
   "message.scepterofdominion.already_in_team": "Already in team!",
+  "message.scepterofdominion.already_controlled": "This entity is already controlled by another scepter!",
+  "message.scepterofdominion.removed_from_team": "Removed from team: %s",
   "message.scepterofdominion.added_to_team": "Added to team: %s",
   "message.scepterofdominion.focus_set": "Focus set to: %s",
   "message.scepterofdominion.command_attack": "Command: Attack %s",
@@ -20,8 +22,10 @@
   "tooltip.scepterofdominion.usage.add": "- Left Click Tamed: Add to Team / Set Focus",
   "tooltip.scepterofdominion.usage.attack": "- Right Click Enemy: Command Attack",
   "tooltip.scepterofdominion.usage.move": "- Right Click Ground: Command Move",
-  "tooltip.scepterofdominion.usage.move_only": "- Sprint + Right Click: Move Only",
-  "tooltip.scepterofdominion.usage.mode": "- Sneak + Left Click (Air): Switch Mode",
+  "tooltip.scepterofdominion.usage.move_only": "- Sprint + Right Click (Ground): Move Only",
+  "tooltip.scepterofdominion.usage.sprint_left": "- Sprint + Left Click: Execute Waypoints",
+  "tooltip.scepterofdominion.usage.sprint_right": "- Sprint + Right Click: Add Waypoint",
+  "tooltip.scepterofdominion.usage.mode": "- Sneak + Left Click: Switch Mode",
   "tooltip.scepterofdominion.usage.gui": "- Sneak + Right Click: Open GUI",
   "gui.scepterofdominion.contain": "Contain",
   "gui.scepterofdominion.release": "Release",
@@ -30,5 +34,8 @@
   "message.scepterofdominion.team_empty": "Team is empty",
   "message.scepterofdominion.dimension_missing": "Storage dimension missing",
   "message.scepterofdominion.no_pets_found": "No pets found nearby",
-  "message.scepterofdominion.no_pets_stored": "No pets found in storage"
+  "message.scepterofdominion.no_pets_stored": "No pets found in storage",
+  "message.scepterofdominion.waypoint_added": "Waypoint added (%s)",
+  "message.scepterofdominion.waypoint_limit": "Waypoint limit reached (%s)",
+  "message.scepterofdominion.waypoints_executed": "Waypoints executed"
 }

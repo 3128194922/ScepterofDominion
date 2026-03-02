@@ -73,5 +73,18 @@ public class ScepterAIHandler {
             // FormationGoal should have a priority that allows it to run.
             tamable.goalSelector.addGoal(2, new ScepterFormationGoal(tamable, 1.0D));
         }
+
+        // Add Waypoint Goal
+        boolean hasWaypointGoal = false;
+        for (WrappedGoal wrapped : tamable.goalSelector.getAvailableGoals()) {
+            if (wrapped.getGoal() instanceof ScepterWaypointGoal) {
+                hasWaypointGoal = true;
+                break;
+            }
+        }
+
+        if (!hasWaypointGoal) {
+            tamable.goalSelector.addGoal(1, new ScepterWaypointGoal(tamable));
+        }
     }
 }

@@ -26,6 +26,12 @@ public class ScepterFormationGoal extends Goal {
 
     @Override
     public boolean canUse() {
+        if (tamable.getPersistentData().contains("ScepterWaypoints", net.minecraft.nbt.Tag.TAG_LIST)) {
+            if (!tamable.getPersistentData().getList("ScepterWaypoints", net.minecraft.nbt.Tag.TAG_COMPOUND).isEmpty()) {
+                return false;
+            }
+        }
+
         // If pet has a target and it is alive, prioritize attack (stop formation logic)
         if (this.tamable.getTarget() != null && this.tamable.getTarget().isAlive()) {
             return false;
@@ -41,21 +47,21 @@ public class ScepterFormationGoal extends Goal {
             
             // Get Scepter to check mode
             ItemStack scepter = FormationHelper.getScepterWithPet(p, tamable.getUUID());
-            if (scepter.isEmpty() || !(scepter.getItem() instanceof ScepterOfDominionItem item)) {
-                return false;
+            if (scepter.isEmpty() || !(scepter.getItem() instanceof net.minecraft.world.item.Item)) { // Relaxed check to AbstractScepterItem via inheritance or just instance check
+                 // The import was specific to ScepterOfDominionItem, but DominionScepterItem also uses this.
+                 // We should check AbstractScepterItem instead.
+                 // But wait, FormationHelper returns ItemStack.
+                 if (!(scepter.getItem() instanceof com.example.scepterofdominion.item.AbstractScepterItem)) return false;
             }
+            com.example.scepterofdominion.item.AbstractScepterItem item = (com.example.scepterofdominion.item.AbstractScepterItem) scepter.getItem();
             
             // Only run formation logic if mode is FORMATION (1)
             // SINGLE mode (0) should not trigger this Goal
             int mode = item.getMode(scepter);
-            if (mode != ScepterOfDominionItem.MODE_FORMATION) {
+            if (mode != com.example.scepterofdominion.item.AbstractScepterItem.MODE_FORMATION) {
                 return false;
             }
 
-            // Removed !tamable.isOrderedToSit() check here because we force stand up in command
-            // But we should respect sit if user manually ordered sit AFTER command.
-            // However, our issueMoveCommand sets sit to false.
-            // If we check isOrderedToSit() here, manual sit will stop formation. That is desired.
             return !tamable.isOrderedToSit();
         }
         return false;
@@ -63,7 +69,9 @@ public class ScepterFormationGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return canUse() && !tamable.getNavigation().isDone();
+        // Continue unless interrupted by sit, death, or waypoints
+        // Or if mode changed.
+        return canUse(); 
     }
 
     @Override
@@ -81,9 +89,11 @@ public class ScepterFormationGoal extends Goal {
             this.timeToRecalcPath = 10;
             
             ItemStack scepter = FormationHelper.getScepterWithPet(owner, tamable.getUUID());
-            if (!scepter.isEmpty() && scepter.getItem() instanceof ScepterOfDominionItem item) {
+            if (!scepter.isEmpty() && scepter.getItem() instanceof com.example.scepterofdominion.item.AbstractScepterItem item) {
                 List<UUID> team = item.getTeam(scepter);
                 int index = team.indexOf(tamable.getUUID());
+                if (index == -1) return; // Should not happen if canUse passed, but safety first
+                
                 int size = team.size();
                 int formation = scepter.getOrCreateTag().getInt("Formation");
                 
@@ -99,16 +109,62 @@ public class ScepterFormationGoal extends Goal {
                 // Note: The FormationHelper.getFormationPos assumes a "center". 
                 // But it doesn't rotate based on facing.
                 // Let's assume standard orientation for now.
-                Vec3 targetPos = FormationHelper.getFormationPos(centerPos, formation, index, size);
+                // WAIT. FormationHelper.getFormationPos does not exist in the snippets provided before, 
+                // but AbstractScepterItem has calculateFormationPositions.
+                // FormationHelper is likely a utility class.
+                // But previously AbstractScepterItem was calculating positions!
+                // Let's check where calculateFormationPositions is. It's in AbstractScepterItem.
+                // And it returns a LIST of positions.
                 
-                // Move to position
-                if (tamable.distanceToSqr(targetPos.x, targetPos.y, targetPos.z) > 4.0D) {
-                     tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier);
-                } else {
-                     // Close enough, stop or maintain
-                     if (tamable.distanceToSqr(targetPos.x, targetPos.y, targetPos.z) < 2.0D) {
+                // We should use AbstractScepterItem's method to be consistent!
+                // But we need the list of ENTITIES, not just UUIDs, to calculate proper spacing (width based).
+                // AbstractScepterItem.calculateFormationPositions takes List<Entity>.
+                
+                // So we need to reconstruct the active members list here to get accurate positions.
+                // This is expensive to do every tick per mob.
+                // Ideally, the "Leader" calculates and sets "TargetPos" for everyone?
+                // Or we just approximate using average width?
+                
+                // Let's try to find the entities.
+                java.util.List<net.minecraft.world.entity.Entity> activeMembers = new java.util.ArrayList<>();
+                if (tamable.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    for (UUID uuid : team) {
+                        net.minecraft.world.entity.Entity entity = serverLevel.getEntity(uuid);
+                        if (entity != null) {
+                            activeMembers.add(entity);
+                        }
+                    }
+                }
+                
+                // If we can't find everyone, the formation might be wonky.
+                // But we should try to find our position in the calculated list.
+                // The list order matches team order (filtered by active).
+                
+                List<Vec3> positions = item.calculateFormationPositions(centerPos, formation, activeMembers);
+                
+                // Find our index in activeMembers
+                int myIndex = -1;
+                for (int i = 0; i < activeMembers.size(); i++) {
+                    if (activeMembers.get(i).getUUID().equals(tamable.getUUID())) {
+                        myIndex = i;
+                        break;
+                    }
+                }
+                
+                if (myIndex != -1 && myIndex < positions.size()) {
+                    Vec3 targetPos = positions.get(myIndex);
+                    
+                    // Move to position
+                    double distSqr = tamable.distanceToSqr(targetPos.x, targetPos.y, targetPos.z);
+                    if (distSqr > 4.0D) {
+                         tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier);
+                    } else if (distSqr > 1.0D) {
+                         // Fine adjustment
+                         tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier * 0.5);
+                    } else {
+                         // Close enough, stop
                          tamable.getNavigation().stop();
-                     }
+                    }
                 }
             }
         }

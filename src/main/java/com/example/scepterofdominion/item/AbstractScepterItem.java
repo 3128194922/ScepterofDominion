@@ -367,36 +367,8 @@ public abstract class AbstractScepterItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Check for shift key on client side, or rely on client packet logic
         if (level.isClientSide) {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.options.keyShift.isDown()) {
-                if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-                     NetworkHooks.openScreen(serverPlayer, new com.example.scepterofdominion.container.ScepterContainerProvider(stack), buffer -> {
-                        buffer.writeItem(stack);
-                    });
-                } else {
-                    // Client side, we should send packet if not already handled by logic below
-                    // But wait, NetworkHooks.openScreen is SERVER ONLY.
-                    // This block is inside "if (level.isClientSide)".
-                    // So calling NetworkHooks.openScreen here is WRONG and will crash or do nothing (as LocalPlayer cannot be cast to ServerPlayer).
-                    
-                    // The intention of previous edit was:
-                    // "In AbstractScepterItem.use's client branch... rely on ClientInputHandler sending packet".
-                    
-                    // So we should NOT call openScreen here.
-                    // We should just return success and let ClientInputHandler do the work?
-                    // Or call ClientInputHandler directly.
-                    
-                    net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> 
-                        com.example.scepterofdominion.client.ClientInputHandler.handleRightClick(this, stack, player, hand)
-                    );
-                    return InteractionResultHolder.success(stack);
-                }
-                return InteractionResultHolder.success(stack);
-            }
-            
-            // Standard right click logic
+            // Client input state (shift/sprint/raycast) is resolved client-side and sent via packets.
             net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT, () -> () -> 
                 com.example.scepterofdominion.client.ClientInputHandler.handleRightClick(this, stack, player, hand)
             );

@@ -1,4 +1,4 @@
-本mod整合了产靠mod中的收容和RTS指挥功能，让玩家可以对宠物如同RTS游戏一样指挥战斗。本mod由AI编写。
+本mod整合了参考mod中的收容和RTS指挥功能，让玩家可以对宠物如同RTS游戏一样指挥战斗。本mod由AI编写。
 
 参考MOD：
 https://github.com/MCMostWolf/PetConnect

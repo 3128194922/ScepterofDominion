@@ -1,11 +1,9 @@
 package com.example.scepterofdominion;
 
-import com.example.scepterofdominion.client.gui.ScepterScreen;
 import com.example.scepterofdominion.container.ScepterMenu;
 import com.example.scepterofdominion.item.DominionScepterItem;
 import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import com.example.scepterofdominion.network.PacketHandler;
-import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.MenuType;
@@ -14,7 +12,6 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -23,7 +20,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
@@ -77,13 +73,5 @@ public class ScepterOfDominion {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         // Do something when the server starts
-    }
-
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static class ClientModEvents {
-        @SubscribeEvent
-        public static void onClientSetup(FMLClientSetupEvent event) {
-            MenuScreens.register(SCEPTER_MENU.get(), ScepterScreen::new);
-        }
     }
 }

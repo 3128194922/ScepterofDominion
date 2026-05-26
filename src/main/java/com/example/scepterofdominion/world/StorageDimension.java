@@ -2,7 +2,7 @@ package com.example.scepterofdominion.world;
 
 import com.example.scepterofdominion.ScepterOfDominion;
 import com.example.scepterofdominion.item.AbstractScepterItem;
-import com.example.scepterofdominion.item.ScepterOfDominionItem;
+import com.example.scepterofdominion.util.ScepterSquadData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -38,8 +38,8 @@ public class StorageDimension {
     public static void containPets(ServerPlayer player, ItemStack stack, @javax.annotation.Nullable Entity specificEntity) {
         if (!(stack.getItem() instanceof AbstractScepterItem item)) return;
 
-        List<CompoundTag> teamInfo = item.getTeamInfo(stack);
-        List<UUID> team = item.getTeam(stack);
+        List<CompoundTag> teamInfo = item.getTeamInfo(stack, player);
+        List<UUID> team = item.getTeam(stack, player);
         if (team.isEmpty()) {
             if (specificEntity == null) {
                 player.displayClientMessage(Component.translatable("message.scepterofdominion.team_empty").withStyle(ChatFormatting.RED), true);
@@ -231,7 +231,7 @@ public class StorageDimension {
     public static void releasePets(ServerPlayer player, ItemStack stack) {
         if (!(stack.getItem() instanceof AbstractScepterItem item)) return;
 
-        List<UUID> team = item.getTeam(stack);
+        List<UUID> team = item.getTeam(stack, player);
         if (team.isEmpty()) return;
 
         ServerLevel storageLevel = player.server.getLevel(STORAGE_DIMENSION);
@@ -270,41 +270,7 @@ public class StorageDimension {
                     
                     living.setHealth(health);
                     
-                    // Update release position in Scepter NBT
-                    ItemStack scepter = com.example.scepterofdominion.util.FormationHelper.getScepterWithPet(player, living.getUUID());
-                    if (!scepter.isEmpty() && scepter.getItem() instanceof AbstractScepterItem scepterItem) {
-                         List<CompoundTag> teamInfo = scepterItem.getTeamInfo(scepter);
-                         for (CompoundTag member : teamInfo) {
-                             if (member.hasUUID("UUID") && member.getUUID("UUID").equals(living.getUUID())) {
-                                 member.putString("Dimension", player.level().dimension().location().toString());
-                                 member.putDouble("X", player.getX());
-                                 member.putDouble("Y", player.getY());
-                                 member.putDouble("Z", player.getZ());
-                                 // We need to write back to NBT
-                                 // Since getTeamInfo returns a copy of NBT list content? 
-                                 // No, getTeamInfo implementation returns a NEW list of compound tags.
-                                 // So modifying 'member' here does NOT modify the stack NBT.
-                                 
-                                 // We need a way to update specific member tag.
-                                 // Let's use a helper method in AbstractScepterItem or do it manually.
-                                 CompoundTag scepterTag = scepter.getOrCreateTag();
-                                 if (scepterTag.contains("Team", 9)) {
-                                     net.minecraft.nbt.ListTag list = scepterTag.getList("Team", 10);
-                                     for (int i = 0; i < list.size(); i++) {
-                                         CompoundTag m = list.getCompound(i);
-                                         if (m.hasUUID("UUID") && m.getUUID("UUID").equals(living.getUUID())) {
-                                             m.putString("Dimension", player.level().dimension().location().toString());
-                                             m.putDouble("X", player.getX());
-                                             m.putDouble("Y", player.getY());
-                                             m.putDouble("Z", player.getZ());
-                                             break; // Found and updated
-                                         }
-                                     }
-                                 }
-                                 break;
-                             }
-                         }
-                    }
+                    ScepterSquadData.updatePetLocation(player, living.getUUID(), player.position(), player.level().dimension().location().toString());
 
                     count++;
                 } catch (Exception e) {

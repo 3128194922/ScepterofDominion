@@ -13,14 +13,17 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 public class PacketGuiAction {
-
     public static final int ACTION_SET_FORMATION = 0;
     public static final int ACTION_SELECT_PET = 1;
     public static final int ACTION_REMOVE_PET = 2;
     public static final int ACTION_LEFT_CLICK_ENTITY = 3;
-    public static final int ACTION_LEFT_CLICK_ENTITY_SHIFT = 6;
     public static final int ACTION_CONTAIN = 4;
     public static final int ACTION_RELEASE = 5;
+    public static final int ACTION_LEFT_CLICK_ENTITY_SHIFT = 6;
+    public static final int ACTION_PREV_SQUAD = 7;
+    public static final int ACTION_NEXT_SQUAD = 8;
+    public static final int ACTION_SET_TASK = 9;
+    public static final int ACTION_TOGGLE_FORMATION = 10;
 
     private final int action;
     private final int valueInt;
@@ -60,10 +63,14 @@ public class PacketGuiAction {
                 if (stack.getItem() instanceof AbstractScepterItem item) {
                     switch (action) {
                         case ACTION_SET_FORMATION -> {
-                            CompoundTag tag = stack.getOrCreateTag();
-                            tag.putInt("Formation", valueInt);
+                            item.setFormation(stack, valueInt, player);
                             item.syncToClient(stack, player);
                         }
+                        case ACTION_SET_TASK -> {
+                            item.setSquadTask(stack, valueInt, player);
+                            item.syncToClient(stack, player);
+                        }
+                        case ACTION_TOGGLE_FORMATION -> item.toggleFormationEnabled(stack, player);
                         case ACTION_SELECT_PET -> {
                             try {
                                 UUID uuid = UUID.fromString(valueStr);
@@ -96,25 +103,25 @@ public class PacketGuiAction {
                             }
                         }
                         case ACTION_LEFT_CLICK_ENTITY_SHIFT -> {
-                            try {
-                                UUID uuid = UUID.fromString(valueStr);
-                                if (player.serverLevel().getEntity(uuid) instanceof net.minecraft.world.entity.LivingEntity living) {
-                                     // Handle remove/shift logic
-                                     java.util.List<UUID> team = item.getTeam(stack);
-                                     if (team.contains(living.getUUID())) {
-                                         item.removeTeamMember(stack, living.getUUID(), player, living);
-                                         player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.removed_from_team", living.getName()).withStyle(net.minecraft.ChatFormatting.RED), true);
-                                     }
-                                }
-                            } catch (Exception e) {
-                                // Ignore
-                            }
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1);
+                            item.syncToClient(stack, player);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
                         }
                         case ACTION_CONTAIN -> {
                             com.example.scepterofdominion.world.StorageDimension.containPets(player, stack);
                         }
                         case ACTION_RELEASE -> {
                             com.example.scepterofdominion.world.StorageDimension.releasePets(player, stack);
+                        }
+                        case ACTION_PREV_SQUAD -> {
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, -1);
+                            item.syncToClient(stack, player);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                        }
+                        case ACTION_NEXT_SQUAD -> {
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1);
+                            item.syncToClient(stack, player);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
                         }
                     }
                 }

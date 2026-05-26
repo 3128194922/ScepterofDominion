@@ -27,7 +27,9 @@ public class PacketModeSwitch {
             if (player != null) {
                 ItemStack stack = player.getMainHandItem();
                 if (stack.getItem() instanceof AbstractScepterItem item) {
-                    item.cycleMode(stack, player);
+                    com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1);
+                    item.syncToClient(stack, player);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
                 }
             }
         });

@@ -1,20 +1,17 @@
 package com.example.scepterofdominion.ai;
 
-import com.example.scepterofdominion.item.AbstractScepterItem;
-import com.example.scepterofdominion.item.DominionScepterItem;
 import com.example.scepterofdominion.util.FormationHelper;
+import com.example.scepterofdominion.util.ScepterSquadData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import net.minecraft.world.entity.monster.RangedAttackMob;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 
 public class DominionGoal extends Goal {
     private final Mob mob;
@@ -34,7 +31,6 @@ public class DominionGoal extends Goal {
             }
         }
 
-        // Only run if the entity is dominated
         if (!mob.getPersistentData().hasUUID("DominionOwner")) return false;
 
         UUID ownerId = mob.getPersistentData().getUUID("DominionOwner");
@@ -44,45 +40,11 @@ public class DominionGoal extends Goal {
         // Check if mob is in team
         if (!FormationHelper.isPetInScepterTeam(owner, mob.getUUID())) return false;
 
-        ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
-        if (scepter.isEmpty() || !(scepter.getItem() instanceof DominionScepterItem item)) return false;
+        int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
+        if (squadIndex < 0) return false;
 
-        // If we have an Attack Target, we yield control to the native Attack Goal (which usually handles movement to target)
-        // UNLESS we are in a formation that requires holding position?
-        // No, standard behavior: Attack Target > Formation Position.
-        // So if Attack Target is set, this Goal should NOT run.
-        UUID attackTargetUUID = item.getAttackTarget(scepter);
-        if (attackTargetUUID != null) {
-            // But wait, we need to set the mob's target so the native AI picks it up.
-            // We can't do that in canUse easily.
-            // Actually, we can do it in tick() if we run.
-            // BUT if we return false here, tick() won't run.
-            
-            // Strategy:
-            // This Goal runs if:
-            // 1. No Attack Target is set via Scepter.
-            // OR
-            // 2. Attack Target IS set, but we are just setting it and yielding?
-            
-            // Better Strategy for Scheme B:
-            // This Goal handles MOVEMENT/FORMATION when NOT attacking.
-            // If Scepter has Attack Target, we let Native AI handle it.
-            // So return false if Attack Target is present?
-            
-            // Let's check if the mob has a target.
-            // If Scepter says Attack, we need to ensure Mob.setTarget is called.
-            // Who calls it? We can have a separate "DominionTargetGoal" for that?
-            // Or we can do it here but return false for "using navigation".
-            
-            // Scheme B (Hybrid):
-            // 1. DominionTargetGoal (Priority 0): Sets mob.target based on Scepter.
-            // 2. DominionGoal (Priority 1): Handles Formation/Move Command.
-            //    canUse(): return true only if Scepter has NO Attack Target (or target is dead).
-            
-            // So here (DominionGoal), we return false if Scepter has Attack Target.
-             return false;
-        }
-
+        if (mob.getTarget() != null && mob.getTarget().isAlive()) return false;
+        if (ScepterSquadData.getAttackTarget(owner, squadIndex) != null) return false;
         return true;
     }
 
@@ -110,87 +72,88 @@ public class DominionGoal extends Goal {
             return;
         }
 
-        ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
-        if (scepter.isEmpty() || !(scepter.getItem() instanceof DominionScepterItem item)) {
+        int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
+        if (squadIndex < 0) {
             mob.getNavigation().stop();
             return;
         }
 
-        // We only run if NO Attack Target (checked in canUse/canContinueToUse).
-        // So we just handle Movement / Formation.
-
         if (--this.timeToRecalcPath <= 0) {
             this.timeToRecalcPath = 10;
 
-            int mode = item.getMode(scepter);
-            List<UUID> team = item.getTeam(scepter);
-            
-            // Single Mode
-            if (mode == AbstractScepterItem.MODE_SINGLE) {
-                UUID focus = item.getFocus(scepter);
-                if (mob.getUUID().equals(focus)) {
-                    Vec3 commandTarget = item.getCommandTarget(scepter);
-                    if (commandTarget != null) {
-                        mob.getNavigation().moveTo(commandTarget.x, commandTarget.y, commandTarget.z, 1.2);
-                    } else {
-                        // Follow player if no target? Or stand still?
-                        // Existing scepter: "issueMoveCommand" sets target. If no target set, it doesn't move.
-                        // But wait, ScepterFormationGoal follows player if no target.
-                        // Let's check ScepterFormationGoal again.
-                        // ScepterFormationGoal: centerPos = commandTarget != null ? commandTarget : owner.position();
-                        // So it defaults to following owner.
-                        
-                        // But for Single Mode, ScepterFormationGoal returns false (canUse).
-                        // So in Single Mode, existing logic relies on issueMoveCommand being called once.
-                        // But here we are the ONLY goal running.
-                        // So we must handle Single Mode movement too if we want "AI Takeover".
-                        // If no command target, stick to owner?
-                        
-                        // If I just stand still, I can't follow owner.
-                        // Let's default to following owner if no command target.
-                        
-                         mob.getNavigation().moveTo(owner, 1.0);
-                    }
-                } else {
-                    // Not focused in Single Mode -> Stand still / Idle
-                     mob.getNavigation().stop();
+            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
+            int squadTask = ScepterSquadData.getTask(owner, squadIndex);
+            if (squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT) {
+                double ownerDist = mob.distanceToSqr(owner);
+                if (ownerDist > 16.0D) {
+                    mob.getNavigation().moveTo(owner, 1.15D);
+                } else if (ownerDist < 6.25D) {
+                    mob.getNavigation().stop();
                 }
                 return;
             }
 
-            // Formation Mode
-            int index = team.indexOf(mob.getUUID());
-            int size = team.size();
-            int formation = scepter.getOrCreateTag().getInt("Formation");
-
-            Vec3 centerPos;
-            Vec3 commandTarget = item.getCommandTarget(scepter);
-            if (commandTarget != null) {
-                centerPos = commandTarget;
-            } else {
-                centerPos = owner.position();
+            Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex);
+            boolean formationEnabled = ScepterSquadData.isFormationEnabled(owner, squadIndex);
+            if (formationEnabled) {
+                int index = team.indexOf(mob.getUUID());
+                List<net.minecraft.world.entity.Entity> activeMembers = getActiveMembers(team);
+                Vec3 centerPos = commandTarget != null ? commandTarget : getIdleCenter(activeMembers);
+                Vec3 targetPos = FormationHelper.getFormationPos(centerPos, ScepterSquadData.getFormation(owner, squadIndex), index, Math.max(activeMembers.size(), team.size()));
+                moveToTarget(targetPos, 1.15D);
+                return;
             }
 
-            Vec3 targetPos = FormationHelper.getFormationPos(centerPos, formation, index, size);
-
-            if (mob.distanceToSqr(targetPos.x, targetPos.y, targetPos.z) > 4.0D) {
-                mob.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, 1.2);
+            if (commandTarget != null) {
+                moveToTarget(commandTarget, 1.15D);
             } else {
-                if (mob.distanceToSqr(targetPos.x, targetPos.y, targetPos.z) < 2.0D) {
+                if (squadTask == ScepterSquadData.TASK_HOLD) {
                     mob.getNavigation().stop();
-                }
-            }
-            
-            // Look at owner or target
-            if (commandTarget != null) {
-                // Look at where they are going
-                // mob.getLookControl().setLookAt(commandTarget.x, commandTarget.y, commandTarget.z, 10.0F, (float)mob.getMaxHeadXRot());
-            } else {
-                // Only look at owner if idle and close
-                if (mob.distanceToSqr(owner) < 100) {
-                     mob.getLookControl().setLookAt(owner, 10.0F, (float)mob.getMaxHeadXRot());
+                } else {
+                    Vec3 idleCenter = getIdleCenter(getActiveMembers(team));
+                    if (mob.distanceToSqr(idleCenter) > 9.0D) {
+                        mob.getNavigation().moveTo(idleCenter.x, idleCenter.y, idleCenter.z, 1.0D);
+                    } else {
+                        mob.getNavigation().stop();
+                    }
                 }
             }
         }
+    }
+
+    private void moveToTarget(Vec3 targetPos, double speed) {
+        double distSqr = mob.distanceToSqr(targetPos.x, targetPos.y, targetPos.z);
+        if (distSqr > 9.0D) {
+            mob.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speed);
+        } else if (distSqr > 1.5D) {
+            mob.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speed * 0.5D);
+        } else {
+            mob.getNavigation().stop();
+        }
+    }
+
+    private List<net.minecraft.world.entity.Entity> getActiveMembers(List<UUID> team) {
+        List<net.minecraft.world.entity.Entity> members = new ArrayList<>();
+        if (mob.level() instanceof ServerLevel serverLevel) {
+            for (UUID uuid : team) {
+                net.minecraft.world.entity.Entity entity = serverLevel.getEntity(uuid);
+                if (entity != null) {
+                    members.add(entity);
+                }
+            }
+        }
+        return members;
+    }
+
+    private Vec3 getIdleCenter(List<net.minecraft.world.entity.Entity> activeMembers) {
+        if (activeMembers.isEmpty()) {
+            return mob.position();
+        }
+
+        Vec3 sum = Vec3.ZERO;
+        for (net.minecraft.world.entity.Entity entity : activeMembers) {
+            sum = sum.add(entity.position());
+        }
+        return sum.scale(1.0D / activeMembers.size());
     }
 }

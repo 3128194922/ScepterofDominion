@@ -1,7 +1,9 @@
 package com.example.scepterofdominion.ai;
 
-import com.example.scepterofdominion.item.ScepterOfDominionItem;
+import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.util.FormationHelper;
+import com.example.scepterofdominion.util.ScepterSquadData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.player.Player;
@@ -44,25 +46,20 @@ public class ScepterFormationGoal extends Goal {
             if (!FormationHelper.isPetInScepterTeam(p, tamable.getUUID())) {
                 return false;
             }
-            
-            // Get Scepter to check mode
-            ItemStack scepter = FormationHelper.getScepterWithPet(p, tamable.getUUID());
-            if (scepter.isEmpty() || !(scepter.getItem() instanceof net.minecraft.world.item.Item)) { // Relaxed check to AbstractScepterItem via inheritance or just instance check
-                 // The import was specific to ScepterOfDominionItem, but DominionScepterItem also uses this.
-                 // We should check AbstractScepterItem instead.
-                 // But wait, FormationHelper returns ItemStack.
-                 if (!(scepter.getItem() instanceof com.example.scepterofdominion.item.AbstractScepterItem)) return false;
-            }
-            com.example.scepterofdominion.item.AbstractScepterItem item = (com.example.scepterofdominion.item.AbstractScepterItem) scepter.getItem();
-            
-            // Only run formation logic if mode is FORMATION (1)
-            // SINGLE mode (0) should not trigger this Goal
-            int mode = item.getMode(scepter);
-            if (mode != com.example.scepterofdominion.item.AbstractScepterItem.MODE_FORMATION) {
+
+            int squadIndex = FormationHelper.getSquadIndexForPet(p, tamable.getUUID());
+            if (squadIndex < 0) {
                 return false;
             }
 
-            return !tamable.isOrderedToSit();
+            int squadTask = ScepterSquadData.getTask(p, squadIndex);
+            if (squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT) {
+                return !tamable.isOrderedToSit();
+            }
+
+            if (squadTask == ScepterSquadData.TASK_GUARD || squadTask == ScepterSquadData.TASK_HOLD) {
+                return !tamable.isOrderedToSit();
+            }
         }
         return false;
     }
@@ -88,61 +85,48 @@ public class ScepterFormationGoal extends Goal {
         if (--this.timeToRecalcPath <= 0) {
             this.timeToRecalcPath = 10;
             
-            ItemStack scepter = FormationHelper.getScepterWithPet(owner, tamable.getUUID());
-            if (!scepter.isEmpty() && scepter.getItem() instanceof com.example.scepterofdominion.item.AbstractScepterItem item) {
-                List<UUID> team = item.getTeam(scepter);
-                int index = team.indexOf(tamable.getUUID());
-                if (index == -1) return; // Should not happen if canUse passed, but safety first
-                
-                int size = team.size();
-                int formation = scepter.getOrCreateTag().getInt("Formation");
-                
-                // Calculate target position
-                Vec3 centerPos;
-                Vec3 commandTarget = item.getCommandTarget(scepter);
-                if (commandTarget != null) {
-                    centerPos = commandTarget;
-                } else {
-                    centerPos = owner.position();
-                }
-                
-                // Note: The FormationHelper.getFormationPos assumes a "center". 
-                // But it doesn't rotate based on facing.
-                // Let's assume standard orientation for now.
-                // WAIT. FormationHelper.getFormationPos does not exist in the snippets provided before, 
-                // but AbstractScepterItem has calculateFormationPositions.
-                // FormationHelper is likely a utility class.
-                // But previously AbstractScepterItem was calculating positions!
-                // Let's check where calculateFormationPositions is. It's in AbstractScepterItem.
-                // And it returns a LIST of positions.
-                
-                // We should use AbstractScepterItem's method to be consistent!
-                // But we need the list of ENTITIES, not just UUIDs, to calculate proper spacing (width based).
-                // AbstractScepterItem.calculateFormationPositions takes List<Entity>.
-                
-                // So we need to reconstruct the active members list here to get accurate positions.
-                // This is expensive to do every tick per mob.
-                // Ideally, the "Leader" calculates and sets "TargetPos" for everyone?
-                // Or we just approximate using average width?
-                
-                // Let's try to find the entities.
-                java.util.List<net.minecraft.world.entity.Entity> activeMembers = new java.util.ArrayList<>();
-                if (tamable.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                    for (UUID uuid : team) {
-                        net.minecraft.world.entity.Entity entity = serverLevel.getEntity(uuid);
-                        if (entity != null) {
-                            activeMembers.add(entity);
-                        }
+            int squadIndex = FormationHelper.getSquadIndexForPet(owner, tamable.getUUID());
+            if (squadIndex < 0) {
+                return;
+            }
+
+            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
+            int index = team.indexOf(tamable.getUUID());
+            if (index == -1) return;
+
+            int squadTask = ScepterSquadData.getTask(owner, squadIndex);
+            if (squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT) {
+                followOwner(owner);
+                return;
+            }
+
+            java.util.List<net.minecraft.world.entity.Entity> activeMembers = new java.util.ArrayList<>();
+            if (tamable.level() instanceof ServerLevel serverLevel) {
+                for (UUID uuid : team) {
+                    net.minecraft.world.entity.Entity entity = serverLevel.getEntity(uuid);
+                    if (entity != null) {
+                        activeMembers.add(entity);
                     }
                 }
-                
-                // If we can't find everyone, the formation might be wonky.
-                // But we should try to find our position in the calculated list.
-                // The list order matches team order (filtered by active).
-                
+            }
+
+            AbstractScepterItem item = owner.getMainHandItem().getItem() instanceof AbstractScepterItem heldItem ? heldItem : null;
+            if (item == null) {
+                ItemStack maybeScepter = FormationHelper.getScepterWithPet(owner, tamable.getUUID());
+                if (maybeScepter.getItem() instanceof AbstractScepterItem inventoryItem) {
+                    item = inventoryItem;
+                }
+            }
+            if (item == null) {
+                return;
+            }
+
+            Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex);
+            boolean formationEnabled = ScepterSquadData.isFormationEnabled(owner, squadIndex);
+            if (formationEnabled) {
+                int formation = ScepterSquadData.getFormation(owner, squadIndex);
+                Vec3 centerPos = commandTarget != null ? commandTarget : getIdleCenter(activeMembers);
                 List<Vec3> positions = item.calculateFormationPositions(centerPos, formation, activeMembers);
-                
-                // Find our index in activeMembers
                 int myIndex = -1;
                 for (int i = 0; i < activeMembers.size(); i++) {
                     if (activeMembers.get(i).getUUID().equals(tamable.getUUID())) {
@@ -150,23 +134,57 @@ public class ScepterFormationGoal extends Goal {
                         break;
                     }
                 }
-                
+
                 if (myIndex != -1 && myIndex < positions.size()) {
-                    Vec3 targetPos = positions.get(myIndex);
-                    
-                    // Move to position
-                    double distSqr = tamable.distanceToSqr(targetPos.x, targetPos.y, targetPos.z);
-                    if (distSqr > 4.0D) {
-                         tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier);
-                    } else if (distSqr > 1.0D) {
-                         // Fine adjustment
-                         tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier * 0.5);
-                    } else {
-                         // Close enough, stop
-                         tamable.getNavigation().stop();
-                    }
+                    moveToTarget(positions.get(myIndex));
+                }
+                return;
+            }
+
+            if (commandTarget != null) {
+                moveToTarget(commandTarget);
+            } else if (squadTask == ScepterSquadData.TASK_HOLD) {
+                tamable.getNavigation().stop();
+            } else {
+                Vec3 idleCenter = getIdleCenter(activeMembers);
+                if (tamable.distanceToSqr(idleCenter) > 9.0D) {
+                    tamable.getNavigation().moveTo(idleCenter.x, idleCenter.y, idleCenter.z, speedModifier * 0.8D);
+                } else {
+                    tamable.getNavigation().stop();
                 }
             }
         }
+    }
+
+    private void moveToTarget(Vec3 targetPos) {
+        double distSqr = tamable.distanceToSqr(targetPos.x, targetPos.y, targetPos.z);
+        if (distSqr > 9.0D) {
+            tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier);
+        } else if (distSqr > 1.5D) {
+            tamable.getNavigation().moveTo(targetPos.x, targetPos.y, targetPos.z, speedModifier * 0.5D);
+        } else {
+            tamable.getNavigation().stop();
+        }
+    }
+
+    private void followOwner(Player owner) {
+        double distSqr = tamable.distanceToSqr(owner);
+        if (distSqr > 16.0D) {
+            tamable.getNavigation().moveTo(owner, speedModifier);
+        } else if (distSqr < 6.25D) {
+            tamable.getNavigation().stop();
+        }
+    }
+
+    private Vec3 getIdleCenter(List<net.minecraft.world.entity.Entity> activeMembers) {
+        if (activeMembers.isEmpty()) {
+            return tamable.position();
+        }
+
+        Vec3 sum = Vec3.ZERO;
+        for (net.minecraft.world.entity.Entity entity : activeMembers) {
+            sum = sum.add(entity.position());
+        }
+        return sum.scale(1.0D / activeMembers.size());
     }
 }

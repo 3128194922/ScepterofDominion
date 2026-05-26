@@ -1,7 +1,5 @@
 package com.example.scepterofdominion.util;
 
-import com.example.scepterofdominion.item.AbstractScepterItem;
-import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -76,27 +74,18 @@ public class FormationHelper {
     }
 
     public static boolean isPetInScepterTeam(Player player, UUID petId) {
-        // Iterate over player's inventory to find ScepterOfDominionItem
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (stack.getItem() instanceof AbstractScepterItem scepter) {
-                List<UUID> team = scepter.getTeam(stack);
-                if (team.contains(petId)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return ScepterSquadData.isPetInAnySquad(player, petId);
+    }
+
+    public static int getSquadIndexForPet(Player player, UUID petId) {
+        return ScepterSquadData.findSquadIndexContaining(player, petId);
     }
     
     public static ItemStack getScepterWithPet(Player player, UUID petId) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (stack.getItem() instanceof AbstractScepterItem scepter) {
-                List<UUID> team = scepter.getTeam(stack);
-                if (team.contains(petId)) {
-                    return stack;
-                }
+            if (stack.getItem() instanceof com.example.scepterofdominion.item.AbstractScepterItem) {
+                return stack;
             }
         }
         return ItemStack.EMPTY;

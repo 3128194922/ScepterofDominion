@@ -16,6 +16,13 @@ https://github.com/MCMostWolf/PetConnect
 https://github.com/misaka10843/ShinColle
 开源协议：https://github.com/misaka10843/ShinColle?tab=GPL-3.0-1-ov-file
 
+https://github.com/Minecraft-LightLand/ModularGolems
+开源协议：https://github.com/Minecraft-LightLand/ModularGolems?tab=LGPL-2.1-1-ov-file
+
+https://github.com/Fayebeard/book_of_familiars
+开源协议：https://github.com/Fayebeard/book_of_familiars
+
+
 ## 环境
 
 - Minecraft: `1.20.1`

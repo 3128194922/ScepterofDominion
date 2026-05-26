@@ -27,7 +27,8 @@ public class PacketOpenScepterGui {
             ServerPlayer player = ctx.get().getSender();
             if (player != null) {
                 ItemStack stack = player.getMainHandItem();
-                if (stack.getItem() instanceof AbstractScepterItem) {
+                if (stack.getItem() instanceof AbstractScepterItem item) {
+                    item.syncToClient(stack, player);
                     NetworkHooks.openScreen(player, new ScepterContainerProvider(stack), buffer -> {
                         buffer.writeItem(stack);
                     });

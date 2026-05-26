@@ -24,6 +24,8 @@ public class Config {
         public final ForgeConfigSpec.DoubleValue formationSpacingMultiplier;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> scepterBlacklist;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> dominionWhitelist;
+        public final ForgeConfigSpec.IntValue maxSquads;
+        public final ForgeConfigSpec.IntValue maxSquadMembers;
         public final ForgeConfigSpec.IntValue maxWaypoints;
 
         public CommonConfig(ForgeConfigSpec.Builder builder) {
@@ -34,6 +36,14 @@ public class Config {
             builder.pop();
 
             builder.push("control");
+            maxSquads = builder
+                    .comment("Maximum number of squads a player can switch between. Default: 2. Range: 1-6.")
+                    .defineInRange("maxSquads", 2, 1, 6);
+
+            maxSquadMembers = builder
+                    .comment("Maximum number of members in a single squad. Default: 6. Range: 1-12.")
+                    .defineInRange("maxSquadMembers", 6, 1, 12);
+
             maxWaypoints = builder
                     .comment("Maximum number of waypoints for RTS path mode. Default: 6. Range: 1-20.")
                     .defineInRange("maxWaypoints", 6, 1, 20);

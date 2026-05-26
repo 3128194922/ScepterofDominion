@@ -1,8 +1,8 @@
 package com.example.scepterofdominion.ai;
 
 import com.example.scepterofdominion.item.AbstractScepterItem;
-import com.example.scepterofdominion.item.ScepterOfDominionItem;
 import com.example.scepterofdominion.util.FormationHelper;
+import com.example.scepterofdominion.util.ScepterSquadData;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +30,7 @@ public class ScepterWaypointGoal extends Goal {
         if (!mob.getPersistentData().contains("ScepterWaypoints", Tag.TAG_LIST)) return false;
         ListTag waypoints = mob.getPersistentData().getList("ScepterWaypoints", Tag.TAG_COMPOUND);
         if (waypoints.isEmpty()) return false;
+        if (mob.getTarget() != null && mob.getTarget().isAlive()) return false;
 
         CompoundTag currentTask = waypoints.getCompound(0);
         return "MOVE".equals(currentTask.getString("Type"));
@@ -84,55 +85,20 @@ public class ScepterWaypointGoal extends Goal {
         Player owner = mob.level().getPlayerByUUID(ownerId);
         
         if (owner != null) {
+            int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
+            if (squadIndex < 0) {
+                return;
+            }
+
+            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
+            if (!team.isEmpty() && team.get(0).equals(mob.getUUID())) {
+                ScepterSquadData.setCommandTarget(owner, squadIndex, pos);
+                ScepterSquadData.setAttackTarget(owner, squadIndex, null);
+            }
+
             ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
-            if (!scepter.isEmpty() && scepter.getItem() instanceof AbstractScepterItem item) {
-                // If in SINGLE mode and this mob is focus, update global command target
-                int mode = item.getMode(scepter);
-                if (mode == AbstractScepterItem.MODE_SINGLE) {
-                    UUID focus = item.getFocus(scepter);
-                    if (focus != null && focus.equals(mob.getUUID())) {
-                        item.setCommandTarget(scepter, pos);
-                        item.syncToClient(scepter, owner);
-                    }
-                } else {
-                    // In Formation/Team mode, we MUST update the global CommandTarget to the last waypoint position.
-                    // However, 'pos' here is the INDIVIDUAL unit's target position, which includes formation offsets.
-                    // If we set CommandTarget to this offset position, the whole formation will shift again relative to it.
-                    // We need to recover the ORIGINAL center position of the last waypoint.
-                    
-                    // The ScepterWaypoints NBT structure on the entity stores the calculated individual position.
-                    // It does NOT store the original center.
-                    // BUT, if we want the formation to HOLD at the end, we need the center.
-                    
-                    // Actually, let's look at how executeWaypoints works.
-                    // It calculates individual positions and stores them.
-                    
-                    // If we want to support "Move to end and stay there in formation", 
-                    // we need to know where the "Formation Center" should be.
-                    
-                    // Hacky solution: 
-                    // When executeWaypoints is called, we could store the "Final Center" in the Entity's NBT as well?
-                    // Or, we just update CommandTarget based on this unit's position minus its formation offset?
-                    // That's hard because offset depends on index and formation type.
-                    
-                    // Better solution:
-                    // Just set CommandTarget to 'pos'. 
-                    // This effectively makes the "End Position" of this specific unit the new "Center" of the formation.
-                    // This will cause a slight shift (regrouping around the leader/unit that finished last), 
-                    // but it's better than running back to start.
-                    // AND, if we only let the "Leader" (index 0) update it?
-                    // We don't easily know who is index 0 here without checking scepter team list.
-                    
-                    List<UUID> team = item.getTeam(scepter);
-                    if (!team.isEmpty() && team.get(0).equals(mob.getUUID())) {
-                         // Only the first member updates the global target to avoid race conditions
-                         // But we need to reverse the offset? 
-                         // Or we simply accept that the Leader's position becomes the new Center.
-                         // For most formations, Leader is at center or front.
-                         item.setCommandTarget(scepter, pos);
-                         item.syncToClient(scepter, owner);
-                    }
-                }
+            if (scepter.getItem() instanceof AbstractScepterItem item) {
+                item.syncToClient(scepter, owner);
             }
         }
     }

@@ -53,8 +53,7 @@ public class ClientEvents {
                     return;
                 }
 
-                // 1. Mode Switch (Sneak + Left Click)
-                // Use keyShift instead of isCrouching() to support flying
+                // 1. Cycle selected squad (Sneak + Left Click)
                 if (mc.options.keyShift.isDown()) {
                     if (System.currentTimeMillis() - lastInputTime > 300) {
                         lastInputTime = System.currentTimeMillis();
@@ -200,11 +199,9 @@ public class ClientEvents {
             }
         }
 
-        // 1. Always Render Focus Pet (Gold Box)
-        // Or if in FORMATION mode, render ALL team members as Gold
+        // 1. Render current squad members and focus
         UUID focusUUID = scepter.getFocus(stack);
         List<UUID> teamUUIDs = scepter.getTeam(stack);
-        int mode = scepter.getMode(stack);
         
         // Render Squad Targets (Destination / Attack Target)
         Vec3 commandTarget = scepter.getCommandTarget(stack);
@@ -228,21 +225,13 @@ public class ClientEvents {
             }
         }
         
-        if (mode == AbstractScepterItem.MODE_FORMATION) {
-            // Render ALL team members as Gold (Focus)
-            for (Entity entity : mc.level.entitiesForRendering()) {
-                if (teamUUIDs.contains(entity.getUUID()) && entity instanceof LivingEntity living) {
-                    AABB box = living.getBoundingBox();
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (teamUUIDs.contains(entity.getUUID()) && entity instanceof LivingEntity living) {
+                AABB box = living.getBoundingBox();
+                if (focusUUID != null && focusUUID.equals(entity.getUUID())) {
                     LevelRenderer.renderLineBox(poseStack, buffer, box, 1.0f, 0.84f, 0.0f, 1.0f);
-                }
-            }
-        } else if (focusUUID != null) {
-            // Render ONLY focus as Gold
-            for (Entity entity : mc.level.entitiesForRendering()) {
-                if (entity.getUUID().equals(focusUUID) && entity instanceof LivingEntity living) {
-                    AABB box = living.getBoundingBox();
-                    LevelRenderer.renderLineBox(poseStack, buffer, box, 1.0f, 0.84f, 0.0f, 1.0f);
-                    break;
+                } else {
+                    LevelRenderer.renderLineBox(poseStack, buffer, box, 0.2f, 1.0f, 0.2f, 1.0f);
                 }
             }
         }
@@ -262,13 +251,7 @@ public class ClientEvents {
                     UUID focus = scepter.getFocus(stack);
                     
                     boolean isTeam = team.contains(living.getUUID());
-                    boolean isFocus = false;
-                    
-                    if (scepter.getMode(stack) == AbstractScepterItem.MODE_FORMATION) {
-                        isFocus = isTeam; // All team members are focus in Formation mode
-                    } else {
-                        isFocus = isTeam && living.getUUID().equals(focus);
-                    }
+                    boolean isFocus = isTeam && living.getUUID().equals(focus);
                     
                     boolean canControl = scepter.canControl(living, mc.player);
 

@@ -3,15 +3,16 @@
   "generator": {
     "type": "minecraft:flat",
     "settings": {
-      "biome": "minecraft:mushroom_fields",
-      "features": false,
-      "lakes": false,
+      "features": true,
       "layers": [
         {
           "block": "minecraft:bedrock",
           "height": 1
         }
-      ]
+      ],
+      "biome": "scepterofdominion:storage",
+      "lakes": false,
+      "structure_overrides": []
     }
   }
 }

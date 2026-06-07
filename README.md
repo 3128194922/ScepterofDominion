@@ -10,18 +10,14 @@
 项目当前自带一个简短说明文件 `README.txt`，而本 `README.md` 用于补充完整用法与接入说明。
 
 # 参考MOD：
+宠物收容功能
 https://github.com/MCMostWolf/PetConnect
-开源协议：https://github.com/MCMostWolf/PetConnect/blob/main/LICENSE.txt
 
+权杖阵型系统和最初的指挥体系
 https://github.com/misaka10843/ShinColle
-开源协议：https://github.com/misaka10843/ShinColle?tab=GPL-3.0-1-ov-file
 
+权杖指挥体系参考
 https://github.com/Minecraft-LightLand/ModularGolems
-开源协议：https://github.com/Minecraft-LightLand/ModularGolems?tab=LGPL-2.1-1-ov-file
-
-https://github.com/Fayebeard/book_of_familiars
-开源协议：https://github.com/Fayebeard/book_of_familiars
-
 
 ## 环境
 

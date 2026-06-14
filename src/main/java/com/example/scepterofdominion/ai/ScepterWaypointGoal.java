@@ -67,9 +67,14 @@ public class ScepterWaypointGoal extends Goal {
             waypoints.remove(0);
             mob.getPersistentData().put("ScepterWaypoints", waypoints);
             
-            // If this was the last waypoint, set CommandTarget to this position to maintain position
             if (waypoints.isEmpty()) {
-                updateCommandTarget(new Vec3(x, y, z));
+                if (mob.getPersistentData().getBoolean("ScepterClosed")
+                        && mob.getPersistentData().contains("ScepterWaypointsOriginal", Tag.TAG_LIST)) {
+                    ListTag original = mob.getPersistentData().getList("ScepterWaypointsOriginal", Tag.TAG_COMPOUND);
+                    mob.getPersistentData().put("ScepterWaypoints", original.copy());
+                } else {
+                    updateCommandTarget(new Vec3(x, y, z));
+                }
             }
             
             mob.getNavigation().stop();

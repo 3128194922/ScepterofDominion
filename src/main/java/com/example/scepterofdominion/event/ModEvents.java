@@ -87,9 +87,15 @@ public class ModEvents {
             if (complete) {
                 waypoints.remove(0);
                 mob.getPersistentData().put("ScepterWaypoints", waypoints);
-                
-                if (waypoints.isEmpty() && target != null) {
-                    updateCommandTarget(mob, target.position());
+
+                if (waypoints.isEmpty()) {
+                    if (mob.getPersistentData().getBoolean("ScepterClosed")
+                            && mob.getPersistentData().contains("ScepterWaypointsOriginal", Tag.TAG_LIST)) {
+                        ListTag original = mob.getPersistentData().getList("ScepterWaypointsOriginal", Tag.TAG_COMPOUND);
+                        mob.getPersistentData().put("ScepterWaypoints", original.copy());
+                    } else if (target != null) {
+                        updateCommandTarget(mob, target.position());
+                    }
                 }
             }
         }

@@ -5,6 +5,7 @@ import com.example.scepterofdominion.network.PacketHandler;
 import com.example.scepterofdominion.util.ScepterSquadData;
 import com.example.scepterofdominion.world.StorageDimension;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -508,6 +509,15 @@ public abstract class AbstractScepterItem extends Item {
             return;
         }
 
+        boolean closed = false;
+        if (waypoints.size() >= 2) {
+            CompoundTag first = waypoints.get(0);
+            CompoundTag last = waypoints.get(waypoints.size() - 1);
+            BlockPos firstPos = new BlockPos((int) first.getDouble("X"), (int) first.getDouble("Y"), (int) first.getDouble("Z"));
+            BlockPos lastPos = new BlockPos((int) last.getDouble("X"), (int) last.getDouble("Y"), (int) last.getDouble("Z"));
+            closed = firstPos.equals(lastPos);
+        }
+
         List<UUID> team = getTeam(stack, player);
         int formationId = getFormation(stack, player);
         boolean formationEnabled = isFormationEnabled(stack, player) && usesFormationForCommands(player);
@@ -561,6 +571,10 @@ public abstract class AbstractScepterItem extends Item {
 
             if (!entityQueue.isEmpty()) {
                 entity.getPersistentData().put("ScepterWaypoints", entityQueue);
+                entity.getPersistentData().putBoolean("ScepterClosed", closed);
+                if (closed) {
+                    entity.getPersistentData().put("ScepterWaypointsOriginal", entityQueue.copy());
+                }
             }
         }
 
@@ -590,6 +604,8 @@ public abstract class AbstractScepterItem extends Item {
                 }
 
                 entity.getPersistentData().remove("ScepterWaypoints");
+                entity.getPersistentData().remove("ScepterClosed");
+                entity.getPersistentData().remove("ScepterWaypointsOriginal");
                 activeMembers.add(entity);
             }
         }
@@ -619,6 +635,8 @@ public abstract class AbstractScepterItem extends Item {
                 }
 
                 entity.getPersistentData().remove("ScepterWaypoints");
+                entity.getPersistentData().remove("ScepterClosed");
+                entity.getPersistentData().remove("ScepterWaypointsOriginal");
                 commandEntityAttack(entity, target);
             }
         }

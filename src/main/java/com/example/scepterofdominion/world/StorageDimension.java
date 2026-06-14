@@ -18,7 +18,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.RelativeMovement;
-import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -168,6 +167,14 @@ public class StorageDimension {
             }
         }
 
+        // Eject all passengers from entities before containing
+        for (Entity entity : entitiesToContain) {
+            List<Entity> passengers = new ArrayList<>(entity.getPassengers());
+            for (Entity passenger : passengers) {
+                passenger.stopRiding();
+            }
+        }
+
         for (Entity entity : entitiesToContain) {
             if (entity instanceof LivingEntity living) {
                 // Teleport logic from PetConnect
@@ -242,35 +249,37 @@ public class StorageDimension {
         storageLevel.getChunkSource().addRegionTicket(TicketType.FORCED, chunkPos, 2, chunkPos);
 
         // Scan storage dimension for pets
-        // Since they are all at 0,100,0, small area is fine
         AABB searchArea = new AABB(STORAGE_POS).inflate(50.0);
-        
-        // Find all entities in storage that are in the team
-        // Note: We iterate over all entities in the box and check if their UUID is in the team list
-        List<Entity> entities = storageLevel.getEntities((Entity)null, searchArea, e -> team.contains(e.getUUID()));
-        
+
+        // Phase 1: Find all team entities in storage
+        Set<Entity> allToRelease = new LinkedHashSet<>();
+        List<Entity> teamEntities = storageLevel.getEntities((Entity) null, searchArea, e -> team.contains(e.getUUID()));
+        allToRelease.addAll(teamEntities);
+
+        // Phase 2: Teleport all entities back to player
         int count = 0;
-        for (Entity entity : entities) {
+        for (Entity entity : allToRelease) {
             if (entity instanceof LivingEntity living) {
                 try {
                     float health = living.getHealth();
                     float yaw = living.getYRot();
                     float pitch = living.getXRot();
                     Set<RelativeMovement> relativeMovements = EnumSet.noneOf(RelativeMovement.class);
-                    
+
                     living.setNoGravity(false);
-                    
+
                     CompoundTag tag = new CompoundTag();
                     living.saveWithoutId(tag);
                     tag.putBoolean("NoAI", false);
                     living.load(tag);
-                    
-                    // Teleport back to player
+
                     living.teleportTo((ServerLevel) player.level(), player.getX(), player.getY(), player.getZ(), relativeMovements, yaw, pitch);
-                    
+
                     living.setHealth(health);
-                    
-                    ScepterSquadData.updatePetLocation(player, living.getUUID(), player.position(), player.level().dimension().location().toString());
+
+                    if (team.contains(living.getUUID())) {
+                        ScepterSquadData.updatePetLocation(player, living.getUUID(), player.position(), player.level().dimension().location().toString());
+                    }
 
                     count++;
                 } catch (Exception e) {
@@ -278,11 +287,12 @@ public class StorageDimension {
                 }
             }
         }
-        
+
         if (count > 0) {
             player.displayClientMessage(Component.translatable("message.scepterofdominion.released", count).withStyle(ChatFormatting.GREEN), true);
         } else {
             player.displayClientMessage(Component.translatable("message.scepterofdominion.no_pets_stored").withStyle(ChatFormatting.YELLOW), true);
         }
     }
+
 }

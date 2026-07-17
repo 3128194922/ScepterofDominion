@@ -28,7 +28,7 @@ import java.util.*;
 
 public class StorageDimension {
     public static final ResourceKey<Level> STORAGE_DIMENSION = ResourceKey.create(Registries.DIMENSION, new ResourceLocation("scepterofdominion:storage"));
-    private static final BlockPos STORAGE_POS = new BlockPos(0, 100, 0); // Safe height, assuming platform or void with NoGravity
+    public static final BlockPos STORAGE_POS = new BlockPos(0, 100, 0); // Safe height, assuming platform or void with NoGravity
 
     public static void containPets(ServerPlayer player, ItemStack stack) {
         containPets(player, stack, null);
@@ -292,6 +292,41 @@ public class StorageDimension {
             player.displayClientMessage(Component.translatable("message.scepterofdominion.released", count).withStyle(ChatFormatting.GREEN), true);
         } else {
             player.displayClientMessage(Component.translatable("message.scepterofdominion.no_pets_stored").withStyle(ChatFormatting.YELLOW), true);
+        }
+    }
+
+    public static boolean containPetDirect(ServerLevel currentLevel, LivingEntity living) {
+        ServerLevel storageLevel = living.getServer().getLevel(STORAGE_DIMENSION);
+        if (storageLevel == null) return false;
+
+        ChunkPos storageChunkPos = new ChunkPos(STORAGE_POS);
+        storageLevel.getChunkSource().addRegionTicket(TicketType.FORCED, storageChunkPos, 2, storageChunkPos);
+
+        try {
+            currentLevel.sendParticles(ParticleTypes.PORTAL, living.getX(), living.getY() + 0.5, living.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
+            currentLevel.playSound(null, living.getX(), living.getY(), living.getZ(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+
+            List<Entity> passengers = new ArrayList<>(living.getPassengers());
+            for (Entity passenger : passengers) {
+                passenger.stopRiding();
+            }
+
+            float yaw = living.getYRot();
+            float pitch = living.getXRot();
+            Set<RelativeMovement> relativeMovements = EnumSet.noneOf(RelativeMovement.class);
+
+            living.setNoGravity(true);
+
+            CompoundTag tag = new CompoundTag();
+            living.saveWithoutId(tag);
+            tag.putBoolean("NoAI", true);
+            living.load(tag);
+
+            living.teleportTo(storageLevel, STORAGE_POS.getX() + 0.5, STORAGE_POS.getY(), STORAGE_POS.getZ() + 0.5, relativeMovements, yaw, pitch);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
         }
     }
 

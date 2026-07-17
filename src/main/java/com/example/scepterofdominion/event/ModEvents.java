@@ -4,6 +4,7 @@ import com.example.scepterofdominion.ScepterOfDominion;
 import com.example.scepterofdominion.item.AbstractScepterItem;
 import com.example.scepterofdominion.util.FormationHelper;
 import com.example.scepterofdominion.util.ScepterSquadData;
+import com.example.scepterofdominion.world.StorageDimension;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -17,7 +18,11 @@ import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -30,6 +35,39 @@ import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = ScepterOfDominion.MODID)
 public class ModEvents {
+
+    @SubscribeEvent
+    public static void onChunkUnload(ChunkEvent.Unload event) {
+        if (!(event.getChunk() instanceof LevelChunk chunk)) return;
+        Level level = chunk.getLevel();
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        if (serverLevel.dimension().location().equals(StorageDimension.STORAGE_DIMENSION.location())) return;
+
+        net.minecraft.world.level.ChunkPos chunkPos = chunk.getPos();
+        AABB area = new AABB(
+                chunkPos.getMinBlockX(), serverLevel.getMinBuildHeight(), chunkPos.getMinBlockZ(),
+                chunkPos.getMaxBlockX() + 1, serverLevel.getMaxBuildHeight(), chunkPos.getMaxBlockZ() + 1
+        );
+
+        for (Entity entity : serverLevel.getEntities((Entity) null, area, e ->
+                e instanceof LivingEntity
+                        && (e.getPersistentData().hasUUID("ScepterOwner") || e.getPersistentData().hasUUID("DominionOwner"))
+        )) {
+            LivingEntity living = (LivingEntity) entity;
+            UUID ownerUUID = living.getPersistentData().hasUUID("ScepterOwner")
+                    ? living.getPersistentData().getUUID("ScepterOwner")
+                    : living.getPersistentData().getUUID("DominionOwner");
+
+            if (StorageDimension.containPetDirect(serverLevel, living)) {
+                ServerPlayer owner = serverLevel.getServer().getPlayerList().getPlayer(ownerUUID);
+                if (owner != null) {
+                    ScepterSquadData.updatePetLocation(owner, living.getUUID(),
+                            new Vec3(StorageDimension.STORAGE_POS.getX(), StorageDimension.STORAGE_POS.getY(), StorageDimension.STORAGE_POS.getZ()),
+                            "scepterofdominion:storage");
+                }
+            }
+        }
+    }
 
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {

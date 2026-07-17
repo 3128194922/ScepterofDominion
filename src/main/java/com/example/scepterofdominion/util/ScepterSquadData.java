@@ -4,6 +4,7 @@ import com.example.scepterofdominion.Config;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -63,12 +64,33 @@ public final class ScepterSquadData {
     }
 
     public static CompoundTag getRoot(Player player) {
-        CompoundTag persistentData = player.getPersistentData();
-        if (!persistentData.contains(ROOT_KEY, Tag.TAG_COMPOUND)) {
-            persistentData.put(ROOT_KEY, createRootTag());
+        CompoundTag root;
+
+        if (!player.level().isClientSide && player.getServer() != null) {
+            ServerLevel overworld = player.getServer().overworld();
+            ScepterSquadSavedData savedData = ScepterSquadSavedData.get(overworld);
+
+            CompoundTag persistentData = player.getPersistentData();
+            if (persistentData.contains(ROOT_KEY, Tag.TAG_COMPOUND)) {
+                CompoundTag legacy = persistentData.getCompound(ROOT_KEY);
+                CompoundTag saved = savedData.getPlayerRoot(player.getUUID());
+                if (!saved.contains(SQUADS_KEY, Tag.TAG_LIST) || saved.getList(SQUADS_KEY, Tag.TAG_COMPOUND).isEmpty()) {
+                    saved.merge(legacy);
+                    savedData.setDirty();
+                }
+                persistentData.remove(ROOT_KEY);
+            }
+
+            root = savedData.getPlayerRoot(player.getUUID());
+            savedData.setDirty();
+        } else {
+            CompoundTag persistentData = player.getPersistentData();
+            if (!persistentData.contains(ROOT_KEY, Tag.TAG_COMPOUND)) {
+                persistentData.put(ROOT_KEY, new CompoundTag());
+            }
+            root = persistentData.getCompound(ROOT_KEY);
         }
 
-        CompoundTag root = persistentData.getCompound(ROOT_KEY);
         normalizeRoot(root);
         return root;
     }

@@ -24,6 +24,8 @@ public class PacketGuiAction {
     public static final int ACTION_NEXT_SQUAD = 8;
     public static final int ACTION_SET_TASK = 9;
     public static final int ACTION_TOGGLE_FORMATION = 10;
+    public static final int ACTION_SET_MOUNT = 11;
+    public static final int ACTION_UNSET_MOUNT = 12;
 
     private final int action;
     private final int valueInt;
@@ -103,9 +105,10 @@ public class PacketGuiAction {
                             }
                         }
                         case ACTION_LEFT_CLICK_ENTITY_SHIFT -> {
-                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1);
+                            String rk = item.getSquadRootKey();
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1, rk);
                             item.syncToClient(stack, player);
-                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player, rk) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
                         }
                         case ACTION_CONTAIN -> {
                             com.example.scepterofdominion.world.StorageDimension.containPets(player, stack);
@@ -114,14 +117,28 @@ public class PacketGuiAction {
                             com.example.scepterofdominion.world.StorageDimension.releasePets(player, stack);
                         }
                         case ACTION_PREV_SQUAD -> {
-                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, -1);
+                            String rk = item.getSquadRootKey();
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, -1, rk);
                             item.syncToClient(stack, player);
-                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player, rk) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
                         }
                         case ACTION_NEXT_SQUAD -> {
-                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1);
+                            String rk = item.getSquadRootKey();
+                            com.example.scepterofdominion.util.ScepterSquadData.cycleSelectedSquad(player, 1, rk);
                             item.syncToClient(stack, player);
-                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.squad_switched", com.example.scepterofdominion.util.ScepterSquadData.getSelectedSquadIndex(player, rk) + 1).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+                        }
+                        case ACTION_SET_MOUNT -> {
+                            try {
+                                UUID uuid = UUID.fromString(valueStr);
+                                item.setMount(stack, uuid, player);
+                                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.mount_set").withStyle(net.minecraft.ChatFormatting.GOLD), true);
+                            } catch (Exception e) {
+                            }
+                        }
+                        case ACTION_UNSET_MOUNT -> {
+                            item.setMount(stack, null, player);
+                            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.scepterofdominion.mount_unset").withStyle(net.minecraft.ChatFormatting.GOLD), true);
                         }
                     }
                 }

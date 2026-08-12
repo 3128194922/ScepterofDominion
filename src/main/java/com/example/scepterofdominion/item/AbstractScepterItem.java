@@ -39,6 +39,8 @@ public abstract class AbstractScepterItem extends Item {
     }
 
     public abstract boolean canControl(LivingEntity entity, Player player);
+    public abstract String getSquadRootKey();
+    public abstract String getOwnerNbtKey();
     protected abstract void onEntityAdded(LivingEntity entity, Player player);
     protected abstract void onEntityRemoved(LivingEntity entity, Player player);
     protected abstract void commandEntityMove(Entity entity, Vec3 target, boolean isSprint);
@@ -50,7 +52,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public int getMode(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
-        return player != null ? ScepterSquadData.getMode(player) : stack.getOrCreateTag().getInt(ScepterSquadData.MODE_KEY);
+        return player != null ? ScepterSquadData.getMode(player, getSquadRootKey()) : stack.getOrCreateTag().getInt(ScepterSquadData.MODE_KEY);
     }
 
     public void setMode(ItemStack stack, int mode) {
@@ -60,7 +62,7 @@ public abstract class AbstractScepterItem extends Item {
     public void setMode(ItemStack stack, int mode, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            ScepterSquadData.setMode(player, mode);
+            ScepterSquadData.setMode(player, mode, getSquadRootKey());
         } else {
             stack.getOrCreateTag().putInt(ScepterSquadData.MODE_KEY, mode);
         }
@@ -72,13 +74,13 @@ public abstract class AbstractScepterItem extends Item {
 
     public int getFormation(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
-        return player != null ? ScepterSquadData.getFormation(player) : stack.getOrCreateTag().getInt(ScepterSquadData.FORMATION_KEY);
+        return player != null ? ScepterSquadData.getFormation(player, getSquadRootKey()) : stack.getOrCreateTag().getInt(ScepterSquadData.FORMATION_KEY);
     }
 
     public void setFormation(ItemStack stack, int formation, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            ScepterSquadData.setFormation(player, formation);
+            ScepterSquadData.setFormation(player, formation, getSquadRootKey());
         } else {
             stack.getOrCreateTag().putInt(ScepterSquadData.FORMATION_KEY, formation);
         }
@@ -97,13 +99,13 @@ public abstract class AbstractScepterItem extends Item {
 
     public int getSquadTask(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
-        return player != null ? ScepterSquadData.getTask(player) : ScepterSquadData.TASK_GUARD;
+        return player != null ? ScepterSquadData.getTask(player, getSquadRootKey()) : ScepterSquadData.TASK_GUARD;
     }
 
     public void setSquadTask(ItemStack stack, int task, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            ScepterSquadData.setTask(player, task);
+            ScepterSquadData.setTask(player, task, getSquadRootKey());
         }
     }
 
@@ -113,13 +115,13 @@ public abstract class AbstractScepterItem extends Item {
 
     public boolean isFormationEnabled(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
-        return player != null ? ScepterSquadData.isFormationEnabled(player) : stack.getOrCreateTag().getBoolean(ScepterSquadData.FORMATION_ENABLED_KEY);
+        return player != null ? ScepterSquadData.isFormationEnabled(player, getSquadRootKey()) : stack.getOrCreateTag().getBoolean(ScepterSquadData.FORMATION_ENABLED_KEY);
     }
 
     public void setFormationEnabled(ItemStack stack, boolean enabled, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            ScepterSquadData.setFormationEnabled(player, enabled);
+            ScepterSquadData.setFormationEnabled(player, enabled, getSquadRootKey());
         } else {
             stack.getOrCreateTag().putBoolean(ScepterSquadData.FORMATION_ENABLED_KEY, enabled);
             stack.getOrCreateTag().putInt(ScepterSquadData.MODE_KEY, enabled ? MODE_FORMATION : MODE_SINGLE);
@@ -140,7 +142,7 @@ public abstract class AbstractScepterItem extends Item {
     public List<UUID> getTeam(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getTeam(player);
+            return ScepterSquadData.getTeam(player, getSquadRootKey());
         }
 
         return readLegacyTeam(stack);
@@ -153,7 +155,7 @@ public abstract class AbstractScepterItem extends Item {
     public List<CompoundTag> getTeamInfo(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getTeamInfo(player);
+            return ScepterSquadData.getTeamInfo(player, getSquadRootKey());
         }
 
         List<CompoundTag> info = new ArrayList<>();
@@ -170,7 +172,7 @@ public abstract class AbstractScepterItem extends Item {
     public void syncToClient(ItemStack stack, Player player) {
         ensurePlayerData(stack, player);
         if (!player.level().isClientSide && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
-            PacketHandler.sendToPlayer(new com.example.scepterofdominion.network.PacketSyncTeam(ScepterSquadData.createSyncData(player)), serverPlayer);
+            PacketHandler.sendToPlayer(new com.example.scepterofdominion.network.PacketSyncTeam(ScepterSquadData.createSyncData(player, getSquadRootKey()), getSquadRootKey()), serverPlayer);
         }
     }
 
@@ -180,16 +182,19 @@ public abstract class AbstractScepterItem extends Item {
             return;
         }
 
-        if (entity.getPersistentData().contains("ScepterOwner")) {
-            UUID ownerUUID = entity.getPersistentData().getUUID("ScepterOwner");
+        String rootKey = getSquadRootKey();
+        String ownerKey = getOwnerNbtKey();
+
+        if (entity.getPersistentData().contains(ownerKey)) {
+            UUID ownerUUID = entity.getPersistentData().getUUID(ownerKey);
             if (!ownerUUID.equals(player.getUUID())) {
                 player.displayClientMessage(Component.translatable("message.scepterofdominion.already_controlled").withStyle(ChatFormatting.RED), true);
                 return;
             }
         }
 
-        int currentSquad = ScepterSquadData.getSelectedSquadIndex(player);
-        int existingSquad = ScepterSquadData.findSquadIndexContaining(player, entity.getUUID());
+        int currentSquad = ScepterSquadData.getSelectedSquadIndex(player, rootKey);
+        int existingSquad = ScepterSquadData.findSquadIndexContaining(player, entity.getUUID(), rootKey);
         if (existingSquad == currentSquad) {
             player.displayClientMessage(Component.translatable("message.scepterofdominion.already_in_team").withStyle(ChatFormatting.RED), true);
             return;
@@ -209,11 +214,11 @@ public abstract class AbstractScepterItem extends Item {
         CompoundTag member = new CompoundTag();
         member.putUUID("UUID", entity.getUUID());
         member.putString("Name", entity.getName().getString());
-        ScepterSquadData.addTeamMember(player, member);
+        ScepterSquadData.addTeamMember(player, member, rootKey);
 
-        entity.getPersistentData().putUUID("ScepterOwner", player.getUUID());
+        entity.getPersistentData().putUUID(ownerKey, player.getUUID());
         if (team.isEmpty()) {
-            ScepterSquadData.setFocus(player, entity.getUUID());
+            ScepterSquadData.setFocus(player, entity.getUUID(), rootKey);
         }
 
         onEntityAdded(entity, player);
@@ -229,7 +234,7 @@ public abstract class AbstractScepterItem extends Item {
         Player player = getClientContextPlayer();
         if (player != null) {
             ensurePlayerData(stack, player);
-            ScepterSquadData.removeTeamMember(player, uuid);
+            ScepterSquadData.removeTeamMember(player, uuid, getSquadRootKey());
             return;
         }
 
@@ -249,23 +254,28 @@ public abstract class AbstractScepterItem extends Item {
 
     public void removeTeamMember(ItemStack stack, UUID uuid, Player player, LivingEntity entity) {
         ensurePlayerData(stack, player);
-        int squadIndex = ScepterSquadData.findSquadIndexContaining(player, uuid);
+        String rootKey = getSquadRootKey();
+        int squadIndex = ScepterSquadData.findSquadIndexContaining(player, uuid, rootKey);
         if (squadIndex < 0) {
-            squadIndex = ScepterSquadData.getSelectedSquadIndex(player);
+            squadIndex = ScepterSquadData.getSelectedSquadIndex(player, rootKey);
         }
-        ScepterSquadData.removeTeamMember(player, squadIndex, uuid);
+        ScepterSquadData.removeTeamMember(player, squadIndex, uuid, rootKey);
 
+        // 在所有维度（含收容维度）中查找实体
         LivingEntity resolvedEntity = entity;
-        if (resolvedEntity == null && player.level() instanceof ServerLevel serverLevel) {
-            Entity found = serverLevel.getEntity(uuid);
-            if (found instanceof LivingEntity living) {
-                resolvedEntity = living;
-            }
+        if (resolvedEntity == null && player.getServer() != null) {
+            resolvedEntity = StorageDimension.findEntityInAnyLevel(player.getServer(), uuid);
         }
 
         if (resolvedEntity != null) {
+            // 若实体处于收容维度，先传送到玩家位置并恢复 AI / 重力
+            if (resolvedEntity.level().dimension().equals(StorageDimension.STORAGE_DIMENSION)
+                    && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                StorageDimension.releasePetToPlayer(serverPlayer, resolvedEntity);
+            }
+
             onEntityRemoved(resolvedEntity, player);
-            resolvedEntity.getPersistentData().remove("ScepterOwner");
+            resolvedEntity.getPersistentData().remove(getOwnerNbtKey());
         }
 
         syncToClient(stack, player);
@@ -275,7 +285,7 @@ public abstract class AbstractScepterItem extends Item {
         Player player = getClientContextPlayer();
         if (player != null) {
             ensurePlayerData(stack, player);
-            ScepterSquadData.setFocus(player, uuid);
+            ScepterSquadData.setFocus(player, uuid, getSquadRootKey());
         } else {
             stack.getOrCreateTag().putUUID(ScepterSquadData.FOCUS_KEY, uuid);
         }
@@ -283,7 +293,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void setFocus(ItemStack stack, UUID uuid, Player player) {
         ensurePlayerData(stack, player);
-        ScepterSquadData.setFocus(player, uuid);
+        ScepterSquadData.setFocus(player, uuid, getSquadRootKey());
         syncToClient(stack, player);
     }
 
@@ -296,7 +306,7 @@ public abstract class AbstractScepterItem extends Item {
     public UUID getFocus(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getFocus(player);
+            return ScepterSquadData.getFocus(player, getSquadRootKey());
         }
 
         CompoundTag tag = stack.getOrCreateTag();
@@ -307,7 +317,7 @@ public abstract class AbstractScepterItem extends Item {
         Player player = getClientContextPlayer();
         if (player != null) {
             ensurePlayerData(stack, player);
-            ScepterSquadData.setCommandTarget(player, target);
+            ScepterSquadData.setCommandTarget(player, target, getSquadRootKey());
         } else if (target == null) {
             stack.getOrCreateTag().remove(ScepterSquadData.COMMAND_TARGET_KEY);
         } else {
@@ -321,7 +331,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void setCommandTarget(ItemStack stack, @Nullable Vec3 target, Player player) {
         ensurePlayerData(stack, player);
-        ScepterSquadData.setCommandTarget(player, target);
+        ScepterSquadData.setCommandTarget(player, target, getSquadRootKey());
     }
 
     @Nullable
@@ -333,7 +343,7 @@ public abstract class AbstractScepterItem extends Item {
     public Vec3 getCommandTarget(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getCommandTarget(player);
+            return ScepterSquadData.getCommandTarget(player, getSquadRootKey());
         }
 
         CompoundTag tag = stack.getOrCreateTag();
@@ -348,7 +358,7 @@ public abstract class AbstractScepterItem extends Item {
         Player player = getClientContextPlayer();
         if (player != null) {
             ensurePlayerData(stack, player);
-            ScepterSquadData.setAttackTarget(player, targetUUID);
+            ScepterSquadData.setAttackTarget(player, targetUUID, getSquadRootKey());
         } else if (targetUUID == null) {
             stack.getOrCreateTag().remove(ScepterSquadData.ATTACK_TARGET_KEY);
         } else {
@@ -358,7 +368,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void setAttackTarget(ItemStack stack, @Nullable UUID targetUUID, Player player) {
         ensurePlayerData(stack, player);
-        ScepterSquadData.setAttackTarget(player, targetUUID);
+        ScepterSquadData.setAttackTarget(player, targetUUID, getSquadRootKey());
     }
 
     @Nullable
@@ -370,11 +380,83 @@ public abstract class AbstractScepterItem extends Item {
     public UUID getAttackTarget(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getAttackTarget(player);
+            return ScepterSquadData.getAttackTarget(player, getSquadRootKey());
         }
 
         CompoundTag tag = stack.getOrCreateTag();
         return tag.hasUUID(ScepterSquadData.ATTACK_TARGET_KEY) ? tag.getUUID(ScepterSquadData.ATTACK_TARGET_KEY) : null;
+    }
+
+    @Nullable
+    public UUID getMount(ItemStack stack, @Nullable Player player) {
+        ensurePlayerData(stack, player);
+        if (player != null) {
+            return ScepterSquadData.getMount(player, getSquadRootKey());
+        }
+        return null;
+    }
+
+    public void setMount(ItemStack stack, @Nullable UUID entityUUID, Player player) {
+        ensurePlayerData(stack, player);
+        String rootKey = getSquadRootKey();
+        UUID oldMount = ScepterSquadData.getMount(player, rootKey);
+        if (oldMount != null && !oldMount.equals(entityUUID)) {
+            clearDesignatedMountFlag(player, oldMount);
+        }
+        if (entityUUID != null) {
+            setDesignatedMountFlag(player, entityUUID);
+        }
+        ScepterSquadData.setMount(player, entityUUID, rootKey);
+        syncToClient(stack, player);
+    }
+
+    private void setDesignatedMountFlag(Player player, UUID entityUUID) {
+        if (!(player.level() instanceof ServerLevel serverLevel)) return;
+
+        Entity entity = serverLevel.getEntity(entityUUID);
+        if (entity instanceof LivingEntity living) {
+            living.getPersistentData().putBoolean("ScepterDesignatedMount", true);
+            return;
+        }
+
+        ServerLevel storageLevel = player.getServer().getLevel(com.example.scepterofdominion.world.StorageDimension.STORAGE_DIMENSION);
+        if (storageLevel != null) {
+            net.minecraft.world.level.ChunkPos cp = new net.minecraft.world.level.ChunkPos(
+                    com.example.scepterofdominion.world.StorageDimension.STORAGE_POS);
+            storageLevel.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.FORCED, cp, 2, cp);
+            Entity storageEntity = storageLevel.getEntity(entityUUID);
+            if (storageEntity instanceof LivingEntity storageLiving) {
+                storageLiving.getPersistentData().putBoolean("ScepterDesignatedMount", true);
+            }
+        }
+
+        for (ServerLevel level : player.getServer().getAllLevels()) {
+            if (level == serverLevel || (storageLevel != null && level == storageLevel)) continue;
+            Entity other = level.getEntity(entityUUID);
+            if (other instanceof LivingEntity otherLiving) {
+                otherLiving.getPersistentData().putBoolean("ScepterDesignatedMount", true);
+                break;
+            }
+        }
+    }
+
+    private void clearDesignatedMountFlag(Player player, UUID entityUUID) {
+        for (ServerLevel level : player.getServer().getAllLevels()) {
+            Entity entity = level.getEntity(entityUUID);
+            if (entity instanceof LivingEntity living) {
+                living.getPersistentData().remove("ScepterDesignatedMount");
+            }
+        }
+        ServerLevel storageLevel = player.getServer().getLevel(com.example.scepterofdominion.world.StorageDimension.STORAGE_DIMENSION);
+        if (storageLevel != null) {
+            net.minecraft.world.level.ChunkPos cp = new net.minecraft.world.level.ChunkPos(
+                    com.example.scepterofdominion.world.StorageDimension.STORAGE_POS);
+            storageLevel.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.FORCED, cp, 2, cp);
+            Entity storageEntity = storageLevel.getEntity(entityUUID);
+            if (storageEntity instanceof LivingEntity storageLiving) {
+                storageLiving.getPersistentData().remove("ScepterDesignatedMount");
+            }
+        }
     }
 
     @Override
@@ -383,10 +465,12 @@ public abstract class AbstractScepterItem extends Item {
             return true;
         }
 
+        String rootKey = getSquadRootKey();
+
         if (player.isCrouching()) {
-            ScepterSquadData.cycleSelectedSquad(player, 1);
+            ScepterSquadData.cycleSelectedSquad(player, 1, rootKey);
             syncToClient(stack, player);
-            player.displayClientMessage(Component.translatable("message.scepterofdominion.squad_switched", ScepterSquadData.getSelectedSquadIndex(player) + 1).withStyle(ChatFormatting.AQUA), true);
+            player.displayClientMessage(Component.translatable("message.scepterofdominion.squad_switched", ScepterSquadData.getSelectedSquadIndex(player, rootKey) + 1).withStyle(ChatFormatting.AQUA), true);
             return true;
         }
 
@@ -422,14 +506,17 @@ public abstract class AbstractScepterItem extends Item {
         }
 
         if (targetEntity instanceof LivingEntity target) {
-            List<UUID> team = getTeam(stack, player);
-            if (!team.contains(target.getUUID())) {
+            // 检查目标是否在任何小队中（当前权杖的所有小队 + 另一种权杖的所有小队），
+            // 防止将团队成员设为攻击目标
+            if (!com.example.scepterofdominion.util.FormationHelper.isPetInScepterTeam(player, target.getUUID())) {
                 if (isSprint) {
                     addWaypoint(stack, target.position(), target.getUUID(), player);
                 } else {
                     issueAttackCommand(stack, level, target, player);
                     player.displayClientMessage(Component.translatable("message.scepterofdominion.command_attack", target.getName()).withStyle(ChatFormatting.RED), true);
                 }
+            } else {
+                player.displayClientMessage(Component.translatable("message.scepterofdominion.target_is_team_member").withStyle(ChatFormatting.YELLOW), true);
             }
         } else {
             if (isSprint) {
@@ -461,7 +548,7 @@ public abstract class AbstractScepterItem extends Item {
             waypoint.putString("Type", "MOVE");
         }
 
-        ScepterSquadData.addWaypoint(player, waypoint);
+        ScepterSquadData.addWaypoint(player, waypoint, getSquadRootKey());
         syncToClient(stack, player);
         player.displayClientMessage(Component.translatable("message.scepterofdominion.waypoint_added", waypoints.size() + 1).withStyle(ChatFormatting.AQUA), true);
     }
@@ -473,7 +560,7 @@ public abstract class AbstractScepterItem extends Item {
     public List<CompoundTag> getWaypoints(ItemStack stack, @Nullable Player player) {
         ensurePlayerData(stack, player);
         if (player != null) {
-            return ScepterSquadData.getWaypoints(player);
+            return ScepterSquadData.getWaypoints(player, getSquadRootKey());
         }
 
         List<CompoundTag> waypoints = new ArrayList<>();
@@ -491,7 +578,7 @@ public abstract class AbstractScepterItem extends Item {
         Player player = getClientContextPlayer();
         if (player != null) {
             ensurePlayerData(stack, player);
-            ScepterSquadData.clearWaypoints(player);
+            ScepterSquadData.clearWaypoints(player, getSquadRootKey());
         } else {
             stack.getOrCreateTag().remove(ScepterSquadData.WAYPOINTS_KEY);
         }
@@ -499,7 +586,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void clearWaypoints(ItemStack stack, Player player) {
         ensurePlayerData(stack, player);
-        ScepterSquadData.clearWaypoints(player);
+        ScepterSquadData.clearWaypoints(player, getSquadRootKey());
     }
 
     public void executeWaypoints(ItemStack stack, Player player, Level level) {
@@ -585,6 +672,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void issueMoveCommand(ItemStack stack, Level level, Vec3 target, boolean moveOnly, Player player) {
         ensurePlayerData(stack, player);
+        String rootKey = getSquadRootKey();
         clearWaypoints(stack, player);
         setCommandTarget(stack, target, player);
 
@@ -619,6 +707,7 @@ public abstract class AbstractScepterItem extends Item {
 
     public void issueAttackCommand(ItemStack stack, Level level, LivingEntity target, Player player) {
         ensurePlayerData(stack, player);
+        String rootKey = getSquadRootKey();
         clearWaypoints(stack, player);
 
         List<UUID> team = getTeam(stack, player);
@@ -762,6 +851,7 @@ public abstract class AbstractScepterItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltipComponents, TooltipFlag isAdvanced) {
         Player contextPlayer = getClientContextPlayer();
+        String rootKey = getSquadRootKey();
         int squadTask = getSquadTask(stack, contextPlayer);
         String taskKey = switch (squadTask) {
             case ScepterSquadData.TASK_HOLD -> "message.scepterofdominion.task.hold";
@@ -783,12 +873,12 @@ public abstract class AbstractScepterItem extends Item {
         };
         tooltipComponents.add(Component.translatable("tooltip.scepterofdominion.formation", Component.translatable(formationKey)).withStyle(ChatFormatting.DARK_AQUA));
 
-        int teamSize = contextPlayer != null ? ScepterSquadData.getCurrentTeamSize(contextPlayer) : getTeam(stack).size();
-        int maxMembers = ScepterSquadData.getCachedMaxMembers(contextPlayer);
+        int teamSize = contextPlayer != null ? ScepterSquadData.getCurrentTeamSize(contextPlayer, rootKey) : getTeam(stack).size();
+        int maxMembers = ScepterSquadData.getCachedMaxMembers(contextPlayer, rootKey);
         tooltipComponents.add(Component.translatable("tooltip.scepterofdominion.team_size", teamSize, maxMembers).withStyle(ChatFormatting.DARK_AQUA));
 
         if (contextPlayer != null) {
-            tooltipComponents.add(Component.translatable("tooltip.scepterofdominion.squad_index", ScepterSquadData.getSelectedSquadIndex(contextPlayer) + 1, ScepterSquadData.getCachedMaxSquads(contextPlayer)).withStyle(ChatFormatting.AQUA));
+            tooltipComponents.add(Component.translatable("tooltip.scepterofdominion.squad_index", ScepterSquadData.getSelectedSquadIndex(contextPlayer, rootKey) + 1, ScepterSquadData.getCachedMaxSquads(contextPlayer, rootKey)).withStyle(ChatFormatting.AQUA));
         }
 
         tooltipComponents.add(Component.translatable("tooltip.scepterofdominion.usage").withStyle(ChatFormatting.GRAY));
@@ -803,7 +893,7 @@ public abstract class AbstractScepterItem extends Item {
 
     private void ensurePlayerData(ItemStack stack, @Nullable Player player) {
         if (player != null) {
-            ScepterSquadData.migrateLegacyFromStack(player, stack);
+            ScepterSquadData.migrateLegacyFromStack(player, stack, getSquadRootKey());
         }
     }
 
@@ -831,7 +921,7 @@ public abstract class AbstractScepterItem extends Item {
     }
 
     private boolean usesFormationForCommands(Player player) {
-        int task = ScepterSquadData.getTask(player);
+        int task = ScepterSquadData.getTask(player, getSquadRootKey());
         return task == ScepterSquadData.TASK_GUARD || task == ScepterSquadData.TASK_HOLD;
     }
 }

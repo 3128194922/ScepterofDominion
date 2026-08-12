@@ -22,6 +22,8 @@ public class PacketHandler {
         INSTANCE.registerMessage(id++, PacketExecuteWaypoints.class, PacketExecuteWaypoints::encode, PacketExecuteWaypoints::decode, PacketExecuteWaypoints::handle);
         INSTANCE.registerMessage(id++, PacketScepterRightClick.class, PacketScepterRightClick::encode, PacketScepterRightClick::decode, PacketScepterRightClick::handle);
         INSTANCE.registerMessage(id++, PacketOpenScepterGui.class, PacketOpenScepterGui::encode, PacketOpenScepterGui::decode, PacketOpenScepterGui::handle);
+        INSTANCE.registerMessage(id++, PacketSummonMount.class, PacketSummonMount::encode, PacketSummonMount::decode, PacketSummonMount::handle);
+        INSTANCE.registerMessage(id++, PacketMountJump.class, PacketMountJump::encode, PacketMountJump::decode, PacketMountJump::handle);
     }
 
     public static void sendToServer(Object msg) {

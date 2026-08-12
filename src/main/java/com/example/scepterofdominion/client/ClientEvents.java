@@ -21,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -31,6 +32,8 @@ import java.util.UUID;
 public class ClientEvents {
 
     private static long lastInputTime = 0;
+    private static boolean wasJumpDown = false;
+    private static boolean wasMountKeyDown = false;
 
     @SubscribeEvent
     public static void onKeyInput(net.minecraftforge.client.event.InputEvent.InteractionKeyMappingTriggered event) {
@@ -317,5 +320,28 @@ public class ClientEvents {
             return entityHit;
         }
         return blockHit;
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+
+        boolean isMountKeyDown = ClientModEvents.SUMMON_MOUNT_KEY.isDown();
+        if (isMountKeyDown && !wasMountKeyDown) {
+            com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketSummonMount());
+        }
+        wasMountKeyDown = isMountKeyDown;
+
+        boolean isJumpDown = mc.options.keyJump.isDown();
+        if (isJumpDown && !wasJumpDown && mc.player.isPassenger()) {
+            Entity vehicle = mc.player.getVehicle();
+            if (vehicle instanceof LivingEntity && vehicle.getPersistentData().contains("ScepterIsMount")) {
+                com.example.scepterofdominion.network.PacketHandler.sendToServer(new com.example.scepterofdominion.network.PacketMountJump());
+            }
+        }
+        wasJumpDown = isJumpDown;
     }
 }

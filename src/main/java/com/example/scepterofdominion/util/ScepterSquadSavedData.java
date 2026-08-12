@@ -22,7 +22,15 @@ public class ScepterSquadSavedData extends SavedData {
     }
 
     public CompoundTag getPlayerRoot(UUID playerUUID) {
-        return playerRoots.computeIfAbsent(playerUUID, k -> new CompoundTag());
+        return getPlayerRoot(playerUUID, ScepterSquadData.ROOT_KEY);
+    }
+
+    public CompoundTag getPlayerRoot(UUID playerUUID, String rootKey) {
+        CompoundTag playerTag = playerRoots.computeIfAbsent(playerUUID, k -> new CompoundTag());
+        if (!playerTag.contains(rootKey)) {
+            playerTag.put(rootKey, new CompoundTag());
+        }
+        return playerTag.getCompound(rootKey);
     }
 
     public static ScepterSquadSavedData create() {

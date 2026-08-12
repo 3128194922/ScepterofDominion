@@ -85,26 +85,33 @@ public class ScepterWaypointGoal extends Goal {
     }
 
     private void updateCommandTarget(Vec3 pos) {
-        if (!mob.getPersistentData().hasUUID("DominionOwner")) return;
-        UUID ownerId = mob.getPersistentData().getUUID("DominionOwner");
-        Player owner = mob.level().getPlayerByUUID(ownerId);
-        
-        if (owner != null) {
-            int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
-            if (squadIndex < 0) {
-                return;
-            }
+        // 解析主人（支配权杖用 DominionOwner 标签，统御权杖用 TamableAnimal.getOwner）
+        Player owner = null;
+        if (mob.getPersistentData().hasUUID("DominionOwner")) {
+            owner = mob.level().getPlayerByUUID(mob.getPersistentData().getUUID("DominionOwner"));
+        } else if (mob instanceof net.minecraft.world.entity.TamableAnimal ta && ta.getOwner() instanceof Player p) {
+            owner = p;
+        }
+        if (owner == null) return;
 
-            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
-            if (!team.isEmpty() && team.get(0).equals(mob.getUUID())) {
-                ScepterSquadData.setCommandTarget(owner, squadIndex, pos);
-                ScepterSquadData.setAttackTarget(owner, squadIndex, null);
-            }
+        // 解析实体所属的 rootKey（支配权杖用 ROOT_KEY_DOMINION，统御权杖用 ROOT_KEY）
+        String rootKey = FormationHelper.getRootKeyForPet(owner, mob.getUUID());
+        if (rootKey == null) return;
 
-            ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
-            if (scepter.getItem() instanceof AbstractScepterItem item) {
-                item.syncToClient(scepter, owner);
-            }
+        int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
+        if (squadIndex < 0) {
+            return;
+        }
+
+        List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex, rootKey);
+        if (!team.isEmpty() && team.get(0).equals(mob.getUUID())) {
+            ScepterSquadData.setCommandTarget(owner, squadIndex, pos, rootKey);
+            ScepterSquadData.setAttackTarget(owner, squadIndex, null, rootKey);
+        }
+
+        ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
+        if (scepter.getItem() instanceof AbstractScepterItem item) {
+            item.syncToClient(scepter, owner);
         }
     }
 }

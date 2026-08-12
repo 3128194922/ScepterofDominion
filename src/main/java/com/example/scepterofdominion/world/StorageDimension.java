@@ -169,6 +169,10 @@ public class StorageDimension {
 
         // Eject all passengers from entities before containing
         for (Entity entity : entitiesToContain) {
+            if ((entity.getPersistentData().contains("ScepterIsMount") && entity.isVehicle())
+                    || entity.getPersistentData().contains("ScepterDesignatedMount")) {
+                continue;
+            }
             List<Entity> passengers = new ArrayList<>(entity.getPassengers());
             for (Entity passenger : passengers) {
                 passenger.stopRiding();
@@ -176,6 +180,10 @@ public class StorageDimension {
         }
 
         for (Entity entity : entitiesToContain) {
+            if ((entity.getPersistentData().contains("ScepterIsMount") && entity.isVehicle())
+                    || entity.getPersistentData().contains("ScepterDesignatedMount")) {
+                continue;
+            }
             if (entity instanceof LivingEntity living) {
                 // Teleport logic from PetConnect
                 try {
@@ -328,6 +336,66 @@ public class StorageDimension {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * 将单个实体从收容维度释放到玩家位置（用于从队伍中移除成员时）。
+     * 恢复 NoAI / NoGravity 并传送到玩家所在维度。
+     */
+    public static boolean releasePetToPlayer(ServerPlayer player, LivingEntity living) {
+        if (player.getServer() == null) return false;
+
+        // 确保收容维度的区块已加载，以便查找实体
+        ServerLevel storageLevel = player.getServer().getLevel(STORAGE_DIMENSION);
+        if (storageLevel != null) {
+            ChunkPos storageChunkPos = new ChunkPos(STORAGE_POS);
+            storageLevel.getChunkSource().addRegionTicket(TicketType.FORCED, storageChunkPos, 2, storageChunkPos);
+        }
+
+        try {
+            List<Entity> passengers = new ArrayList<>(living.getPassengers());
+            for (Entity passenger : passengers) {
+                passenger.stopRiding();
+            }
+
+            float health = living.getHealth();
+            float yaw = living.getYRot();
+            float pitch = living.getXRot();
+            Set<RelativeMovement> relativeMovements = EnumSet.noneOf(RelativeMovement.class);
+
+            living.setNoGravity(false);
+
+            CompoundTag tag = new CompoundTag();
+            living.saveWithoutId(tag);
+            tag.putBoolean("NoAI", false);
+            living.load(tag);
+
+            ServerLevel playerLevel = (ServerLevel) player.level();
+            living.teleportTo(playerLevel, player.getX(), player.getY(), player.getZ(), relativeMovements, yaw, pitch);
+
+            living.setHealth(health);
+
+            playerLevel.sendParticles(ParticleTypes.PORTAL, living.getX(), living.getY() + 0.5, living.getZ(), 20, 0.5, 0.5, 0.5, 0.1);
+            playerLevel.playSound(null, living.getX(), living.getY(), living.getZ(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 在所有维度（含收容维度）中查找指定 UUID 的 LivingEntity。
+     */
+    @javax.annotation.Nullable
+    public static LivingEntity findEntityInAnyLevel(net.minecraft.server.MinecraftServer server, UUID uuid) {
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity entity = level.getEntity(uuid);
+            if (entity instanceof LivingEntity living) {
+                return living;
+            }
+        }
+        return null;
     }
 
 }

@@ -3,6 +3,7 @@ package com.example.scepterofdominion.util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.UUID;
@@ -74,11 +75,21 @@ public class FormationHelper {
     }
 
     public static boolean isPetInScepterTeam(Player player, UUID petId) {
-        return ScepterSquadData.isPetInAnySquad(player, petId);
+        return ScepterSquadData.isPetInAnySquad(player, petId, ScepterSquadData.ROOT_KEY)
+                || ScepterSquadData.isPetInAnySquad(player, petId, ScepterSquadData.ROOT_KEY_DOMINION);
     }
 
     public static int getSquadIndexForPet(Player player, UUID petId) {
-        return ScepterSquadData.findSquadIndexContaining(player, petId);
+        int idx = ScepterSquadData.findSquadIndexContaining(player, petId, ScepterSquadData.ROOT_KEY);
+        if (idx >= 0) return idx;
+        return ScepterSquadData.findSquadIndexContaining(player, petId, ScepterSquadData.ROOT_KEY_DOMINION);
+    }
+
+    @Nullable
+    public static String getRootKeyForPet(Player player, UUID petId) {
+        if (ScepterSquadData.findSquadIndexContaining(player, petId, ScepterSquadData.ROOT_KEY) >= 0) return ScepterSquadData.ROOT_KEY;
+        if (ScepterSquadData.findSquadIndexContaining(player, petId, ScepterSquadData.ROOT_KEY_DOMINION) >= 0) return ScepterSquadData.ROOT_KEY_DOMINION;
+        return null;
     }
     
     public static ItemStack getScepterWithPet(Player player, UUID petId) {

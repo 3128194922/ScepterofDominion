@@ -12,26 +12,30 @@ import java.util.function.Supplier;
 public class PacketSyncTeam {
 
     private final CompoundTag data;
+    private final String rootKey;
 
-    public PacketSyncTeam(CompoundTag data) {
+    public PacketSyncTeam(CompoundTag data, String rootKey) {
         this.data = data;
+        this.rootKey = rootKey;
     }
 
     public PacketSyncTeam(FriendlyByteBuf buf) {
         this.data = buf.readNbt();
+        this.rootKey = buf.readUtf();
     }
-    
+
     public static PacketSyncTeam decode(FriendlyByteBuf buf) {
         return new PacketSyncTeam(buf);
     }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeNbt(data);
+        buf.writeUtf(rootKey);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandlers.handleSyncTeam(data));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ClientPacketHandlers.handleSyncTeam(data, rootKey));
         });
         ctx.get().setPacketHandled(true);
     }

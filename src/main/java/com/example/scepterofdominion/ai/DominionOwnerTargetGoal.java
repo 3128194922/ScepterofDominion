@@ -31,7 +31,7 @@ public class DominionOwnerTargetGoal extends TargetGoal {
         if (!FormationHelper.isPetInScepterTeam(owner, mob.getUUID())) return false;
         int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
         if (squadIndex < 0) return false;
-        UUID attackTargetUUID = ScepterSquadData.getAttackTarget(owner, squadIndex);
+        UUID attackTargetUUID = ScepterSquadData.getAttackTarget(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION);
         return attackTargetUUID != null;
     }
 
@@ -41,7 +41,7 @@ public class DominionOwnerTargetGoal extends TargetGoal {
         Player owner = mob.level().getPlayerByUUID(ownerId);
         if (owner != null) {
             int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
-            UUID attackTargetUUID = squadIndex >= 0 ? ScepterSquadData.getAttackTarget(owner, squadIndex) : null;
+            UUID attackTargetUUID = squadIndex >= 0 ? ScepterSquadData.getAttackTarget(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION) : null;
             if (attackTargetUUID != null) {
                 net.minecraft.world.entity.Entity target = ((net.minecraft.server.level.ServerLevel) mob.level()).getEntity(attackTargetUUID);
                 if (target instanceof LivingEntity living) {

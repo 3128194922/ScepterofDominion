@@ -44,7 +44,7 @@ public class DominionGoal extends Goal {
         if (squadIndex < 0) return false;
 
         if (mob.getTarget() != null && mob.getTarget().isAlive()) return false;
-        if (ScepterSquadData.getAttackTarget(owner, squadIndex) != null) return false;
+        if (ScepterSquadData.getAttackTarget(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION) != null) return false;
         return true;
     }
 
@@ -81,8 +81,8 @@ public class DominionGoal extends Goal {
         if (--this.timeToRecalcPath <= 0) {
             this.timeToRecalcPath = 10;
 
-            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
-            int squadTask = ScepterSquadData.getTask(owner, squadIndex);
+            List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION);
+            int squadTask = ScepterSquadData.getTask(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION);
             if (squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT) {
                 double ownerDist = mob.distanceToSqr(owner);
                 if (ownerDist > 16.0D) {
@@ -93,13 +93,13 @@ public class DominionGoal extends Goal {
                 return;
             }
 
-            Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex);
-            boolean formationEnabled = ScepterSquadData.isFormationEnabled(owner, squadIndex);
+            Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION);
+            boolean formationEnabled = ScepterSquadData.isFormationEnabled(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION);
             if (formationEnabled) {
                 int index = team.indexOf(mob.getUUID());
                 List<net.minecraft.world.entity.Entity> activeMembers = getActiveMembers(team);
                 Vec3 centerPos = commandTarget != null ? commandTarget : getIdleCenter(activeMembers);
-                Vec3 targetPos = FormationHelper.getFormationPos(centerPos, ScepterSquadData.getFormation(owner, squadIndex), index, Math.max(activeMembers.size(), team.size()));
+                Vec3 targetPos = FormationHelper.getFormationPos(centerPos, ScepterSquadData.getFormation(owner, squadIndex, ScepterSquadData.ROOT_KEY_DOMINION), index, Math.max(activeMembers.size(), team.size()));
                 moveToTarget(targetPos, 1.15D);
                 return;
             }

@@ -10,11 +10,11 @@ public final class ClientPacketHandlers {
     private ClientPacketHandlers() {
     }
 
-    public static void handleSyncTeam(CompoundTag data) {
+    public static void handleSyncTeam(CompoundTag data, String rootKey) {
         Player player = Minecraft.getInstance().player;
         if (player == null) {
             return;
         }
-        ScepterSquadData.applyClientSync(player, data);
+        ScepterSquadData.applyClientSync(player, data, rootKey);
     }
 }

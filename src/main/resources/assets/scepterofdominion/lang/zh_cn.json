@@ -72,5 +72,17 @@
   "message.scepterofdominion.no_pets_stored": "存储中未发现团队宠物",
   "message.scepterofdominion.waypoint_added": "已添加路径点 (%s)",
   "message.scepterofdominion.waypoint_limit": "路径点数量已达上限 (%s)",
-  "message.scepterofdominion.waypoints_executed": "开始执行路径任务"
+  "message.scepterofdominion.waypoints_executed": "开始执行路径任务",
+  "gui.scepterofdominion.mount_set": "设为坐骑",
+  "gui.scepterofdominion.mount_unset": "取消坐骑",
+  "key.scepterofdominion.summon_mount": "召唤坐骑",
+  "key.categories.scepterofdominion": "统御权杖",
+  "message.scepterofdominion.mount_set": "已设为坐骑",
+  "message.scepterofdominion.mount_unset": "已取消坐骑",
+  "message.scepterofdominion.mount_summoned": "坐骑已召唤: %s",
+  "message.scepterofdominion.no_mount_set": "未设置坐骑",
+  "message.scepterofdominion.mount_not_in_team": "坐骑不在团队中",
+  "message.scepterofdominion.mount_not_found": "未找到坐骑",
+  "message.scepterofdominion.mount_contained": "坐骑已收容: %s",
+  "message.scepterofdominion.target_is_team_member": "目标为团队成员，无法攻击"
 }

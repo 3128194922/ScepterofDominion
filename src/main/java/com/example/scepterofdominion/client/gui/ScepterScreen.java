@@ -32,6 +32,7 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
     private SimpleButton holdTaskButton;
     private SimpleButton followTaskButton;
     private SimpleButton formationToggleButton;
+    private SimpleButton mountButton;
     private int selectedPetIndex = -1;
 
     public ScepterScreen(ScepterMenu menu, Inventory inventory, Component title) {
@@ -46,7 +47,7 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         petButtons.clear();
         removeButtons.clear();
 
-        int maxMembers = ScepterSquadData.getCachedMaxMembers(Minecraft.getInstance().player);
+        int maxMembers = ScepterSquadData.getServerMaxMembers();
         ScreenLayout layout = ScreenLayout.create(this.width, this.height, maxMembers);
 
         guardTaskButton = this.addRenderableWidget(new SimpleButton(layout.taskLeftX, layout.taskTopY, layout.taskButtonWidth, 20, Component.translatable("gui.scepterofdominion.task.guard"), press -> {
@@ -68,6 +69,10 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         }));
         this.addRenderableWidget(new SimpleButton(layout.releaseX, layout.actionButtonY, layout.actionButtonWidth, 20, Component.translatable("gui.scepterofdominion.release"), press -> {
             PacketHandler.sendToServer(new PacketGuiAction(PacketGuiAction.ACTION_RELEASE, 0, ""));
+        }));
+
+        mountButton = this.addRenderableWidget(new SimpleButton(layout.mountButtonX, layout.mountButtonY, layout.mountButtonWidth, 20, Component.empty(), press -> {
+            handleMountToggle();
         }));
 
         this.addRenderableWidget(new SimpleButton(layout.headerLeftArrowX, layout.headerButtonY, 20, 20, Component.literal("<"), press -> {
@@ -174,6 +179,19 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         formationToggleButton.setSelected(formationEnabled);
         formationToggleButton.setMessage(Component.translatable(formationEnabled ? "gui.scepterofdominion.formation_on" : "gui.scepterofdominion.formation_off"));
 
+        UUID mountUUID = item.getMount(stack, player);
+        CompoundTag selectedMember = getSelectedMember(team);
+        boolean isMountSet = mountUUID != null;
+        boolean isSelectedMount = selectedMember != null && mountUUID != null && mountUUID.equals(selectedMember.getUUID("UUID"));
+        if (isMountSet) {
+            mountButton.setMessage(Component.translatable("gui.scepterofdominion.mount_unset"));
+            mountButton.setSelected(isSelectedMount);
+        } else {
+            mountButton.setMessage(Component.translatable("gui.scepterofdominion.mount_set"));
+            mountButton.setSelected(false);
+        }
+        mountButton.visible = true;
+
         for (int i = 0; i < petButtons.size(); i++) {
             SimpleButton petButton = petButtons.get(i);
             SimpleButton removeButton = removeButtons.get(i);
@@ -189,8 +207,29 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         }
     }
 
+    private void handleMountToggle() {
+        Player player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        ItemStack stack = player.getMainHandItem();
+        if (stack.getItem() instanceof AbstractScepterItem item) {
+            UUID currentMount = item.getMount(stack, player);
+            if (currentMount != null) {
+                PacketHandler.sendToServer(new PacketGuiAction(PacketGuiAction.ACTION_UNSET_MOUNT, 0, ""));
+            } else if (this.selectedPetIndex >= 0) {
+                List<CompoundTag> team = item.getTeamInfo(stack, player);
+                if (this.selectedPetIndex < team.size()) {
+                    String uuidStr = team.get(this.selectedPetIndex).getUUID("UUID").toString();
+                    PacketHandler.sendToServer(new PacketGuiAction(PacketGuiAction.ACTION_SET_MOUNT, 0, uuidStr));
+                }
+            }
+        }
+    }
+
     private void drawPanels(GuiGraphics guiGraphics, AbstractScepterItem item, ItemStack stack, Player player, List<CompoundTag> team, int mouseX, int mouseY) {
-        ScreenLayout layout = ScreenLayout.create(this.width, this.height, ScepterSquadData.getCachedMaxMembers(player));
+        String rootKey = item.getSquadRootKey();
+        ScreenLayout layout = ScreenLayout.create(this.width, this.height, ScepterSquadData.getCachedMaxMembers(player, rootKey));
         int titleColor = 0xFFFFFFFF;
 
         guiGraphics.fill(layout.canvasX - 6, layout.canvasY - 6, layout.canvasX + layout.canvasWidth + 6, layout.canvasY + layout.canvasHeight + 6, 0x50000000);
@@ -200,8 +239,8 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         drawPanel(guiGraphics, layout.bottomLeftX, layout.bottomPanelY, layout.bottomLeftWidth, layout.bottomPanelHeight);
         drawPanel(guiGraphics, layout.bottomRightX, layout.bottomPanelY, layout.bottomRightWidth, layout.bottomPanelHeight);
 
-        int squadIndex = ScepterSquadData.getSelectedSquadIndex(player) + 1;
-        int squadCount = ScepterSquadData.getCachedMaxSquads(player);
+        int squadIndex = ScepterSquadData.getSelectedSquadIndex(player, rootKey) + 1;
+        int squadCount = ScepterSquadData.getCachedMaxSquads(player, rootKey);
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.scepterofdominion.squad_title", squadIndex, squadCount), layout.headerCenterX, layout.headerY + 8, titleColor);
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.scepterofdominion.pet_profile"), layout.leftPanelX + layout.leftPanelWidth / 2, layout.mainPanelY + 7, titleColor);
         guiGraphics.drawCenteredString(this.font, Component.translatable("gui.scepterofdominion.pet_stats"), layout.rightPanelX + layout.rightPanelWidth / 2, layout.mainPanelY + 7, titleColor);
@@ -454,6 +493,9 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         private final int actionButtonWidth;
         private final int containX;
         private final int releaseX;
+        private final int mountButtonX;
+        private final int mountButtonY;
+        private final int mountButtonWidth;
         private final int teamListX;
         private final int teamListY;
         private final int petButtonWidth;
@@ -518,6 +560,9 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
             this.actionButtonY = this.bottomPanelY + this.bottomPanelHeight - 24;
             this.containX = this.bottomRightX + 10;
             this.releaseX = this.bottomRightX + this.bottomRightWidth - this.actionButtonWidth - 10;
+            this.mountButtonWidth = 54;
+            this.mountButtonX = this.containX + this.actionButtonWidth + 6;
+            this.mountButtonY = this.actionButtonY;
 
             this.petButtonWidth = 80;
             this.removeButtonWidth = 16;

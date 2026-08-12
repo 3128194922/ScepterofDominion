@@ -54,12 +54,31 @@ public class ModEvents {
                         && (e.getPersistentData().hasUUID("ScepterOwner") || e.getPersistentData().hasUUID("DominionOwner"))
         )) {
             LivingEntity living = (LivingEntity) entity;
+
+            if (living.getPersistentData().contains("ScepterIsMount") && living.isVehicle()) {
+                continue;
+            }
+
+            if (living.getPersistentData().contains("ScepterDesignatedMount")) {
+                continue;
+            }
+
             UUID ownerUUID = living.getPersistentData().hasUUID("ScepterOwner")
                     ? living.getPersistentData().getUUID("ScepterOwner")
                     : living.getPersistentData().getUUID("DominionOwner");
 
+            ServerPlayer owner = serverLevel.getServer().getPlayerList().getPlayer(ownerUUID);
+            if (owner != null) {
+                String rk = living.getPersistentData().hasUUID("DominionOwner")
+                        ? ScepterSquadData.ROOT_KEY_DOMINION : ScepterSquadData.ROOT_KEY;
+                UUID mountUUID = ScepterSquadData.getMount(owner, rk);
+                if (mountUUID != null && mountUUID.equals(living.getUUID())) {
+                    living.getPersistentData().putBoolean("ScepterDesignatedMount", true);
+                    continue;
+                }
+            }
+
             if (StorageDimension.containPetDirect(serverLevel, living)) {
-                ServerPlayer owner = serverLevel.getServer().getPlayerList().getPlayer(ownerUUID);
                 if (owner != null) {
                     ScepterSquadData.updatePetLocation(owner, living.getUUID(),
                             new Vec3(StorageDimension.STORAGE_POS.getX(), StorageDimension.STORAGE_POS.getY(), StorageDimension.STORAGE_POS.getZ()),
@@ -73,6 +92,14 @@ public class ModEvents {
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
         if (event.getEntity().level().isClientSide) return;
         if (!(event.getEntity() instanceof Mob mob)) return;
+
+        if (mob.getPersistentData().contains("ScepterIsMount") && mob.isVehicle()
+                && mob.getControllingPassenger() instanceof net.minecraft.world.entity.player.Player rider) {
+            handleMountRiding(mob, rider);
+        } else if (mob.getPersistentData().contains("ScepterIsMount") && !mob.isVehicle()) {
+            mob.getPersistentData().remove("ScepterIsMount");
+            mob.getPersistentData().remove("ScepterMountOwner");
+        }
 
         if (mob.tickCount % 10 == 0 && !mob.getPersistentData().contains("ScepterWaypoints", Tag.TAG_LIST)) {
             checkDirectAttackTarget(mob);
@@ -144,7 +171,8 @@ public class ModEvents {
         if (owner != null) {
             int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
             if (squadIndex >= 0) {
-                UUID attackTargetUUID = ScepterSquadData.getAttackTarget(owner, squadIndex);
+                String rootKey = getRootKeyForMob(mob);
+                UUID attackTargetUUID = ScepterSquadData.getAttackTarget(owner, squadIndex, rootKey);
                 if (attackTargetUUID != null && mob.level() instanceof ServerLevel sl) {
                     Entity target = sl.getEntity(attackTargetUUID);
                     if (target instanceof LivingEntity living && living.isAlive()) {
@@ -152,8 +180,8 @@ public class ModEvents {
                             mob.setTarget(living);
                         }
                     } else if (target != null) {
-                        ScepterSquadData.setCommandTarget(owner, squadIndex, target.position());
-                        ScepterSquadData.setAttackTarget(owner, squadIndex, null);
+                        ScepterSquadData.setCommandTarget(owner, squadIndex, target.position(), rootKey);
+                        ScepterSquadData.setAttackTarget(owner, squadIndex, null, rootKey);
                         ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
                         if (scepter.getItem() instanceof AbstractScepterItem item) {
                             item.syncToClient(scepter, owner);
@@ -175,17 +203,18 @@ public class ModEvents {
             return;
         }
 
-        List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex);
+        String rootKey = getRootKeyForMob(mob);
+        List<UUID> team = ScepterSquadData.getTeam(owner, squadIndex, rootKey);
         if (team.isEmpty() || !team.get(0).equals(mob.getUUID())) {
             return;
         }
 
-        int squadTask = ScepterSquadData.getTask(owner, squadIndex);
+        int squadTask = ScepterSquadData.getTask(owner, squadIndex, rootKey);
         if (squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT) {
-            ScepterSquadData.setCommandTarget(owner, squadIndex, owner.position());
+            ScepterSquadData.setCommandTarget(owner, squadIndex, owner.position(), rootKey);
         }
 
-        if (ScepterSquadData.getAttackTarget(owner, squadIndex) != null) {
+        if (ScepterSquadData.getAttackTarget(owner, squadIndex, rootKey) != null) {
             return;
         }
 
@@ -200,7 +229,7 @@ public class ModEvents {
 
         Vec3 center = squadTask == ScepterSquadData.TASK_FOLLOW_PROTECT
                 ? owner.position()
-                : getSquadCenter(owner, squadIndex, members);
+                : getSquadCenter(owner, squadIndex, members, rootKey);
 
         AABB searchBox = new AABB(center, center).inflate(32.0D);
         List<LivingEntity> enemies = owner.level().getEntitiesOfClass(LivingEntity.class, searchBox, entity -> isEnemy(owner, team, entity));
@@ -216,7 +245,8 @@ public class ModEvents {
         if (owner != null) {
             int squadIndex = FormationHelper.getSquadIndexForPet(owner, mob.getUUID());
             if (squadIndex >= 0) {
-                ScepterSquadData.setCommandTarget(owner, squadIndex, pos);
+                String rootKey = getRootKeyForMob(mob);
+                ScepterSquadData.setCommandTarget(owner, squadIndex, pos, rootKey);
                 ItemStack scepter = FormationHelper.getScepterWithPet(owner, mob.getUUID());
                 if (scepter.getItem() instanceof AbstractScepterItem item) {
                     item.syncToClient(scepter, owner);
@@ -236,6 +266,13 @@ public class ModEvents {
         return null;
     }
 
+    private static String getRootKeyForMob(Mob mob) {
+        if (mob.getPersistentData().hasUUID("DominionOwner")) {
+            return ScepterSquadData.ROOT_KEY_DOMINION;
+        }
+        return ScepterSquadData.ROOT_KEY;
+    }
+
     private static List<Mob> getActiveSquadMembers(net.minecraft.world.entity.player.Player owner, List<UUID> team) {
         List<Mob> members = new ArrayList<>();
         if (owner.level() instanceof ServerLevel serverLevel) {
@@ -249,8 +286,8 @@ public class ModEvents {
         return members;
     }
 
-    private static Vec3 getSquadCenter(net.minecraft.world.entity.player.Player owner, int squadIndex, List<Mob> members) {
-        Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex);
+    private static Vec3 getSquadCenter(net.minecraft.world.entity.player.Player owner, int squadIndex, List<Mob> members, String rootKey) {
+        Vec3 commandTarget = ScepterSquadData.getCommandTarget(owner, squadIndex, rootKey);
         if (commandTarget != null) {
             return commandTarget;
         }
@@ -317,5 +354,27 @@ public class ModEvents {
                 engageCounts.put(bestTarget.getUUID(), engageCounts.getOrDefault(bestTarget.getUUID(), 0) + 1);
             }
         }
+    }
+
+    private static void handleMountRiding(Mob mount, net.minecraft.world.entity.player.Player rider) {
+        mount.getNavigation().stop();
+        mount.setTarget(null);
+
+        mount.setYRot(rider.getYRot());
+        mount.yRotO = mount.getYRot();
+        mount.setXRot(rider.getXRot() * 0.5F);
+        mount.yBodyRot = mount.getYRot();
+        mount.yHeadRot = mount.yBodyRot;
+
+        float forward = rider.zza;
+        float strafe = rider.xxa;
+        if (forward <= 0.0F) {
+            forward *= 0.25F;
+        }
+        strafe *= 0.5F;
+
+        mount.xxa = strafe;
+        mount.zza = forward;
+        mount.setSpeed((float) mount.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED));
     }
 }

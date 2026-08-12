@@ -25,6 +25,16 @@ public class ScepterOfDominionItem extends AbstractScepterItem {
     }
 
     @Override
+    public String getSquadRootKey() {
+        return com.example.scepterofdominion.util.ScepterSquadData.ROOT_KEY;
+    }
+
+    @Override
+    public String getOwnerNbtKey() {
+        return "ScepterOwner";
+    }
+
+    @Override
     public boolean canControl(LivingEntity entity, Player player) {
         // Check Blacklist
         ResourceLocation id = ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());

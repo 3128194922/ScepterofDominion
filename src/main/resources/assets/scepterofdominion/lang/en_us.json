@@ -49,5 +49,17 @@
   "message.scepterofdominion.no_pets_stored": "No pets found in storage",
   "message.scepterofdominion.waypoint_added": "Waypoint added (%s)",
   "message.scepterofdominion.waypoint_limit": "Waypoint limit reached (%s)",
-  "message.scepterofdominion.waypoints_executed": "Waypoints executed"
+  "message.scepterofdominion.waypoints_executed": "Waypoints executed",
+  "gui.scepterofdominion.mount_set": "Set Mount",
+  "gui.scepterofdominion.mount_unset": "Unset Mount",
+  "key.scepterofdominion.summon_mount": "Summon Mount",
+  "key.categories.scepterofdominion": "Scepter of Dominion",
+  "message.scepterofdominion.mount_set": "Mount set",
+  "message.scepterofdominion.mount_unset": "Mount unset",
+  "message.scepterofdominion.mount_summoned": "Mount summoned: %s",
+  "message.scepterofdominion.no_mount_set": "No mount set",
+  "message.scepterofdominion.mount_not_in_team": "Mount is not in team",
+  "message.scepterofdominion.mount_not_found": "Mount not found",
+  "message.scepterofdominion.mount_contained": "Mount contained: %s",
+  "message.scepterofdominion.target_is_team_member": "Target is a team member, cannot attack"
 }

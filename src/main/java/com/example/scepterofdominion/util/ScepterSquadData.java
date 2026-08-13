@@ -47,6 +47,15 @@ public final class ScepterSquadData {
         return Math.max(1, Config.COMMON.maxSquadMembers.get());
     }
 
+    /**
+     * 从 root 中读取缓存的最大小队数。
+     * 客户端使用服务器同步过来的缓存值（COMMON 配置不会自动同步到客户端），
+     * 服务器端由 {@link #getRoot} 刷新为当前配置值。
+     */
+    private static int resolveMaxSquads(CompoundTag root) {
+        return Math.max(1, root.getInt(MAX_SQUADS_CACHE_KEY));
+    }
+
     public static int getCachedMaxSquads(@Nullable Player player) {
         return getCachedMaxSquads(player, ROOT_KEY);
     }
@@ -94,6 +103,9 @@ public final class ScepterSquadData {
             }
 
             root = savedData.getPlayerRoot(player.getUUID(), rootKey);
+            // Refresh cache from config so server always uses authoritative values
+            root.putInt(MAX_SQUADS_CACHE_KEY, getServerMaxSquads());
+            root.putInt(MAX_MEMBERS_CACHE_KEY, getServerMaxMembers());
             savedData.setDirty();
         } else {
             CompoundTag persistentData = player.getPersistentData();
@@ -113,7 +125,7 @@ public final class ScepterSquadData {
 
     public static int getSelectedSquadIndex(Player player, String rootKey) {
         CompoundTag root = getRoot(player, rootKey);
-        int maxSquads = getServerMaxSquads();
+        int maxSquads = resolveMaxSquads(root);
         int selected = clamp(root.getInt(SELECTED_SQUAD_KEY), 0, maxSquads - 1);
         root.putInt(SELECTED_SQUAD_KEY, selected);
         ensureSquadCount(root, selected + 1);
@@ -126,7 +138,7 @@ public final class ScepterSquadData {
 
     public static void setSelectedSquadIndex(Player player, int index, String rootKey) {
         CompoundTag root = getRoot(player, rootKey);
-        int selected = clamp(index, 0, getServerMaxSquads() - 1);
+        int selected = clamp(index, 0, resolveMaxSquads(root) - 1);
         root.putInt(SELECTED_SQUAD_KEY, selected);
         ensureSquadCount(root, selected + 1);
     }
@@ -136,7 +148,7 @@ public final class ScepterSquadData {
     }
 
     public static void cycleSelectedSquad(Player player, int delta, String rootKey) {
-        int maxSquads = getServerMaxSquads();
+        int maxSquads = getCachedMaxSquads(player, rootKey);
         int current = getSelectedSquadIndex(player, rootKey);
         int next = (current + delta) % maxSquads;
         if (next < 0) {
@@ -159,7 +171,7 @@ public final class ScepterSquadData {
 
     public static CompoundTag getSquad(Player player, int squadIndex, String rootKey) {
         CompoundTag root = getRoot(player, rootKey);
-        int selected = clamp(squadIndex, 0, getServerMaxSquads() - 1);
+        int selected = clamp(squadIndex, 0, resolveMaxSquads(root) - 1);
         ensureSquadCount(root, selected + 1);
         return root.getList(SQUADS_KEY, Tag.TAG_COMPOUND).getCompound(selected);
     }
@@ -224,7 +236,7 @@ public final class ScepterSquadData {
     public static int findSquadIndexContaining(Player player, UUID entityId, String rootKey) {
         CompoundTag root = getRoot(player, rootKey);
         ListTag squads = root.getList(SQUADS_KEY, Tag.TAG_COMPOUND);
-        int maxSquads = Math.min(Math.max(1, squads.size()), getServerMaxSquads());
+        int maxSquads = Math.min(Math.max(1, squads.size()), resolveMaxSquads(root));
         for (int i = 0; i < maxSquads; i++) {
             ListTag team = squads.getCompound(i).getList(TEAM_KEY, Tag.TAG_COMPOUND);
             for (int j = 0; j < team.size(); j++) {
@@ -806,7 +818,7 @@ public final class ScepterSquadData {
             root.putInt(MAX_MEMBERS_CACHE_KEY, getServerMaxMembers());
         }
 
-        ensureSquadCount(root, clamp(root.getInt(SELECTED_SQUAD_KEY), 0, getServerMaxSquads() - 1) + 1);
+        ensureSquadCount(root, clamp(root.getInt(SELECTED_SQUAD_KEY), 0, resolveMaxSquads(root) - 1) + 1);
     }
 
     private static void ensureSquadCount(CompoundTag root, int required) {

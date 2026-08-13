@@ -47,7 +47,14 @@ public class ScepterScreen extends AbstractContainerScreen<ScepterMenu> {
         petButtons.clear();
         removeButtons.clear();
 
-        int maxMembers = ScepterSquadData.getServerMaxMembers();
+        int maxMembers;
+        {
+            Player player = Minecraft.getInstance().player;
+            ItemStack stack = player == null ? ItemStack.EMPTY : player.getMainHandItem();
+            maxMembers = (stack.getItem() instanceof AbstractScepterItem item)
+                    ? ScepterSquadData.getCachedMaxMembers(player, item.getSquadRootKey())
+                    : ScepterSquadData.getServerMaxMembers();
+        }
         ScreenLayout layout = ScreenLayout.create(this.width, this.height, maxMembers);
 
         guardTaskButton = this.addRenderableWidget(new SimpleButton(layout.taskLeftX, layout.taskTopY, layout.taskButtonWidth, 20, Component.translatable("gui.scepterofdominion.task.guard"), press -> {
